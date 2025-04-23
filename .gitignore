@@ -1,0 +1,21 @@
+# Ignorar archivos y carpetas generados automáticamente
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.sqlite3
+
+# Ignorar configuraciones específicas del entorno
+.env
+*.env
+
+# Ignorar datos temporales
+*.json
+
+# Ignorar archivos de trabajo de VS Code
+.vscode/
+*.code-workspace
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db

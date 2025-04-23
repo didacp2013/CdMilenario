@@ -1,0 +1,357 @@
+// Función para exportar datos a CSV
+        function exportToCSV() {
+            // Obtener parámetros actuales
+            const mode = viewMode.value;
+            const periodValue = periodFilter.value;
+            
+            // Determinar proyecto si aplica
+            let projectFilter = 'all';
+            const projectFilterElement = document.getElementById('projectFilter');
+            if (projectFilterElement) {
+                projectFilter = projectFilterElement.value;
+            }
+            
+            // Crear filas para CSV
+            const rows = [];
+            
+            // Encabezado
+            let header = ['Categoría', 'Subcategoría'];
+            if (projectFilter === 'all' && data.hasProjects) {
+                header.unshift('Proyecto');
+            }
+            
+            if (periodValue === 'all') {
+                header.push(...periods);
+            } else {
+                header.push(periodValue);
+            }
+            
+            rows.push(header);
+            
+            // Datos
+            Object.entries(cellData).forEach(([key, cell]) => {
+                // Aplicar filtro de proyecto
+                if (projectFilter !== 'all' && cell.projectId !== projectFilter) {
+                    return;
+                }
+                
+                const row = [];
+                
+                // Añadir proyecto si aplica
+                if (projectFilter === 'all' && data.hasProjects) {
+                    row.push(cell.projectId || '');
+                }
+                
+                // Añadir categoría y subcategoría
+                row.push(cell.category);
+                row.push(cell.subcategory);
+                
+                // Añadir valores según el filtro de período
+                if (periodValue === 'all') {
+                    // Crear mapa de período a valor
+                    const periodMap = {};
+                    cell.timeSeries.forEach(point => {
+                        periodMap[point.period] = point.value;
+                    });
+                    
+                    // Añadir valores para cada período en el orden correcto
+                    periods.forEach(period => {
+                        row.push(periodMap[period] !== undefined ? periodMap[period] : '');
+                    });
+                } else {
+                    // Buscar valor para el período específico
+                    const periodData = cell.timeSeries.find(p => p.period === periodValue);
+                    row.push(periodData ? periodData.value : '');
+                }
+                
+                rows.push(row);
+            });
+            
+            // Convertir a CSV
+            let csv = rows.map(row => row.join(',')).join('\n');
+            
+            // Crear blob y descargar
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'dashboard_export.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function generateMatrix() {
+            try {
+                // Obtener parámetros de visualización
+                const mode = viewMode.value;
+                const rows = parseInt(maxRows.value);
+                const cols = parseInt(maxCols.value);
+                const periodValue = periodFilter.value;
+                
+                // Obtener filtro de proyecto si existe
+                let projectFilter = 'all';
+                const projectFilterElement = document.getElementById('projectFilter');
+                if (projectFilterElement) {
+                    projectFilter = projectFilterElement.value;
+                }
+                
+                // Limpiar tabla existente
+                while (headerRow.children.length > 1) {
+                    headerRow.removeChild(headerRow.lastChild);
+                }
+                tableBody.innerHTML = '';
+                
+                // Determinar categorías y subcategorías a mostrar basado en el modo
+                let categoriesToShow = [];
+                let subcategoriesToShow = [];
+                
+                if (mode === 'top') {
+                    // Calcular totales por categoría y subcategoría
+                    const catTotals = {};
+                    const subcatTotals = {};
+                    
+                    // Utilizar totales proporcionados por el backend si están disponibles
+                    if (data.categoryTotals && Object.keys(data.categoryTotals).length > 0) {
+                        Object.assign(catTotals, data.categoryTotals);
+                    } else {
+                        // Calcular totales si no están disponibles
+                        Object.values(cellData).forEach(cell => {
+                            const category = cell.category;
+                            const subcategory = cell.subcategory;
+                            const value = Math.abs(cell.lastValue || 0);
+                            
+                            // Filtrar por proyecto si es necesario
+                            if (projectFilter !== 'all' && cell.projectId !== projectFilter) {
+                                return;
+                            }
+                            
+                            // Acumular por categoría
+                            if (!catTotals[category]) {
+                                catTotals[category] = 0;
+                            }
+                            catTotals[category] += value;
+                            
+                            // Acumular por subcategoría
+                            if (!subcatTotals[subcategory]) {
+                                subcatTotals[subcategory] = 0;
+                            }
+                            subcatTotals[subcategory] += value;
+                        });
+                    }
+                    
+                    // Ordenar categorías por total
+                    categoriesToShow = Object.entries(catTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, rows)
+                        .map(entry => entry[0]);
+                    
+                    // Ordenar subcategorías por total
+                    subcategoriesToShow = Object.entries(subcatTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, cols)
+                        .map(entry => entry[0]);
+                } else {
+                    // Modo 'all': mostrar todas las categorías y subcategorías
+                    categoriesToShow = categories.slice(0, rows);
+                    subcategoriesToShow = subcategories.slice(0, cols);
+                }
+                
+                // Generar encabezados de columna
+                subcategoriesToShow.forEach(subcategory => {
+                    const th = document.createElement('th');
+                    th.textContent = subcategory;
+                    headerRow.appendChild(th);
+                });
+                
+                // Generar filas de la matriz
+                categoriesToShow.forEach(category => {
+                    const tr = document.createElement('tr');
+                    
+                    // Celda de categoría
+                    const categoryCell = document.createElement('td');
+                    categoryCell.textContent = category;
+                    categoryCell.style.fontWeight = 'bold';
+                    tr.appendChild(categoryCell);
+                    
+                    // Generar celdas para cada subcategoría
+                    subcategoriesToShow.forEach(subcategory => {
+                        const td = document.createElement('td');
+                        const cellKey = (projectFilter !== 'all') 
+                            ? `${projectFilter}|${category}|${subcategory}`
+                            : `${category}|${subcategory}`;
+                        
+                        // Verificar si hay datos para esta combinación
+                        if (cellData[cellKey]) {
+                            const cell = cellData[cellKey];
+                            
+                            // Crear contenedor para el contenido de la celda
+                            const cellContent = document.createElement('div');
+                            cellContent.className = 'cell-content';
+                            cellContent.setAttribute('data-key', cellKey);
+                            
+                            // Determinar qué valor mostrar según el filtro de período
+                            let displayValue = 0;
+                            let seriesData = [];
+                            
+                            if (periodValue === 'all') {
+                                // Mostrar el último valor disponible
+                                displayValue = cell.lastValue || 0;
+                                seriesData = cell.timeSeries || [];
+                            } else {
+                                // Buscar valor para el período específico
+                                const periodData = (cell.timeSeries || []).find(p => p.period === periodValue);
+                                if (periodData) {
+                                    displayValue = periodData.value;
+                                    // Usar solo este período para la visualización
+                                    seriesData = [periodData];
+                                }
+                            }
+                            
+                            // Formatear el valor para mostrar
+                            const formattedValue = formatNumber(displayValue);
+                            
+                            // Determinar clase según si es valor positivo o negativo
+                            const valueClass = displayValue >= 0 ? 'positive' : 'negative';
+                            
+                            // Crear elemento para el valor
+                            const valueElement = document.createElement('div');
+                            valueElement.className = `cell-value ${valueClass}`;
+                            valueElement.textContent = formattedValue;
+                            cellContent.appendChild(valueElement);
+                            
+                            // Añadir mini gráfico si hay series temporales
+                            if (seriesData.length > 0) {
+                                const miniChart = document.createElement('div');
+                                miniChart.className = 'mini-chart';
+                                cellContent.appendChild(miniChart);
+                                
+                                // Crear mini gráfico con D3
+                                createMiniChart(miniChart, seriesData, valueClass);
+                            }
+                            
+                            // Añadir información comparativa si existe
+                            if (cell.comparative && (data.hasPpto || data.hasPrev)) {
+                                const comparative = document.createElement('div');
+                                comparative.className = 'cell-comparative';
+                                
+                                // PRV/PTO
+                                if (data.hasPpto && data.hasPrev && cell.lastPptoValue !== 0) {
+                                    const prvPtoItem = document.createElement('div');
+                                    const percent = cell.comparative.prvPtoPercent || 0;
+                                    prvPtoItem.className = `comp-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    prvPtoItem.innerHTML = `
+                                        <span class="comp-label">PRV/PTO</span>
+                                        <span class="comp-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    comparative.appendChild(prvPtoItem);
+                                }
+                                
+                                // REA/PRV
+                                if (data.hasPrev && cell.lastPrevValue !== 0) {
+                                    const realPrvItem = document.createElement('div');
+                                    const percent = cell.comparative.realPrvPercent || 0;
+                                    realPrvItem.className = `comp-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    realPrvItem.innerHTML = `
+                                        <span class="comp-label">REA/PRV</span>
+                                        <span class="comp-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    comparative.appendChild(realPrvItem);
+                                }
+                                
+                                // Pendiente
+                                if (data.hasPrev) {
+                                    const pendingItem = document.createElement('div');
+                                    const pending = cell.comparative.pending || 0;
+                                    pendingItem.className = `comp-item ${pending <= 0 ? 'positive' : 'negative'}`;
+                                    pendingItem.innerHTML = `
+                                        <span class="comp-label">PDTE</span>
+                                        <span class="comp-value">${formatNumber(pending)}</span>
+                                    `;
+                                    comparative.appendChild(pendingItem);
+                                }
+                                
+                                cellContent.appendChild(comparative);
+                            }
+                            
+                            // Añadir información de períodos
+                            const periodsInfo = document.createElement('div');
+                            periodsInfo.className = 'cell-periods';
+                            periodsInfo.textContent = `${cell.periodsWithData || 0} períodos`;
+                            cellContent.appendChild(periodsInfo);
+                            
+                            // Añadir event listeners para mostrar detalles
+                            cellContent.addEventListener('click', function(e) {
+                                showCellDetails(cellKey);
+                                // Evitar que un clic también active el doble clic
+                                e.stopPropagation();
+                            });
+                            
+                            cellContent.addEventListener('dblclick', function() {
+                                showCellChart(cellKey);
+                            });
+                            
+                            // Añadir tooltip
+                            cellContent.addEventListener('mouseover', function(e) {
+                                const tooltipContent = `
+                                    <strong>${category} - ${subcategory}</strong><br>
+                                    Valor: ${formattedValue}<br>
+                                    Períodos: ${cell.periodsWithData || 0}
+                                `;
+                                window.showTooltip(e, tooltipContent);
+                            });
+                            
+                            cellContent.addEventListener('mouseout', function() {
+                                window.hideTooltip();
+                            });
+                            
+                            // Añadir contenido a la celda
+                            td.appendChild(cellContent);
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+                    
+                    tableBody.appendChild(tr);
+                });
+                
+                // Mostrar mensaje si no hay datos
+                if (tableBody.children.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = subcategoriesToShow.length + 1;
+                    td.textContent = 'No hay datos que mostrar con los filtros seleccionados';
+                    td.style.textAlign = 'center';
+                    td.style.padding = '20px';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                }
+                
+            } catch (e) {
+                console.error('Error al generar matriz:', e);
+                
+                // Mostrar mensaje de error
+                statusIndicator.textContent = `Error: ${e.message}`;
+                statusIndicator.style.display = 'block';
+                
+                // Limpiar tabla
+                while (headerRow.children.length > 1) {
+                    headerRow.removeChild(headerRow.lastChild);
+                }
+                tableBody.innerHTML = '';
+                
+                // Mostrar mensaje de error en la tabla
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 2;
+                td.style.padding = '20px';
+                td.style.color = '#dc2626';
+                td.textContent = `Error al generar la matriz: ${e.message}`;
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+            }
+        }
+    </script>
+</body>
+</html>

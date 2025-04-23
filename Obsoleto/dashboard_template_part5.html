@@ -1,0 +1,212 @@
+function generateMatrix() {
+            try {
+                // Obtener parámetros de visualización
+                const mode = viewMode.value;
+                const rows = parseInt(maxRows.value);
+                const cols = parseInt(maxCols.value);
+                const periodValue = periodFilter.value;
+                
+                // Obtener filtro de proyecto si existe
+                let projectFilter = 'all';
+                const projectFilterElement = document.getElementById('projectFilter');
+                if (projectFilterElement) {
+                    projectFilter = projectFilterElement.value;
+                }
+                
+                // Limpiar tabla existente
+                while (headerRow.children.length > 1) {
+                    headerRow.removeChild(headerRow.lastChild);
+                }
+                tableBody.innerHTML = '';
+                
+                // Determinar categorías y subcategorías a mostrar basado en el modo
+                let categoriesToShow = [];
+                let subcategoriesToShow = [];
+                
+                if (mode === 'top') {
+                    // Calcular totales por categoría y subcategoría
+                    const catTotals = {};
+                    const subcatTotals = {};
+                    
+                    // Utilizar totales proporcionados por el backend si están disponibles
+                    if (data.categoryTotals && Object.keys(data.categoryTotals).length > 0) {
+                        Object.assign(catTotals, data.categoryTotals);
+                    } else {
+                        // Calcular totales si no están disponibles
+                        Object.values(cellData).forEach(cell => {
+                            const category = cell.category;
+                            const subcategory = cell.subcategory;
+                            const value = Math.abs(cell.lastValue || 0);
+                            
+                            // Filtrar por proyecto si es necesario
+                            if (projectFilter !== 'all' && cell.projectId !== projectFilter) {
+                                return;
+                            }
+                            
+                            // Acumular por categoría
+                            if (!catTotals[category]) {
+                                catTotals[category] = 0;
+                            }
+                            catTotals[category] += value;
+                            
+                            // Acumular por subcategoría
+                            if (!subcatTotals[subcategory]) {
+                                subcatTotals[subcategory] = 0;
+                            }
+                            subcatTotals[subcategory] += value;
+                        });
+                    }
+                    
+                    // Ordenar categorías por total
+                    categoriesToShow = Object.entries(catTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, rows)
+                        .map(entry => entry[0]);
+                    
+                    // Ordenar subcategorías por total
+                    subcategoriesToShow = Object.entries(subcatTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, cols)
+                        .map(entry => entry[0]);
+                } else {
+                    // Modo 'all': mostrar todas las categorías y subcategorías
+                    categoriesToShow = categories.slice(0, rows);
+                    subcategoriesToShow = subcategories.slice(0, cols);
+                }
+                
+                // Generar encabezados de columna
+                subcategoriesToShow.forEach(subcategory => {
+                    const th = document.createElement('th');
+                    th.textContent = subcategory;
+                    headerRow.appendChild(th);
+                });
+                
+                // Generar filas de la matriz
+                categoriesToShow.forEach(category => {
+                    const tr = document.createElement('tr');
+                    
+                    // Celda de categoría
+                    const categoryCell = document.createElement('td');
+                    categoryCell.textContent = category;
+                    categoryCell.style.fontWeight = 'bold';
+                    tr.appendChild(categoryCell);
+                    
+                    // Generar celdas para cada subcategoría
+                    subcategoriesToShow.forEach(subcategory => {
+                        const td = document.createElement('td');
+                        const cellKey = (projectFilter !== 'all') 
+                            ? `${projectFilter}|${category}|${subcategory}`
+                            : `${category}|${subcategory}`;
+                        
+                        // Verificar si hay datos para esta combinación
+                        if (cellData[cellKey]) {
+                            const cell = cellData[cellKey];
+                            
+                            // Crear contenedor para el contenido de la celda
+                            const cellContent = document.createElement('div');
+                            cellContent.className = 'cell-content';
+                            cellContent.setAttribute('data-key', cellKey);
+                            
+                            // Determinar qué valor mostrar según el filtro de período
+                            let displayValue = 0;
+                            let seriesData = [];
+                            
+                            if (periodValue === 'all') {
+                                // Mostrar el último valor disponible
+                                displayValue = cell.lastValue || 0;
+                                seriesData = cell.timeSeries || [];
+                            } else {
+                                // Buscar valor para el período específico
+                                const periodData = (cell.timeSeries || []).find(p => p.period === periodValue);
+                                if (periodData) {
+                                    displayValue = periodData.value;
+                                    // Usar solo este período para la visualización
+                                    seriesData = [periodData];
+                                }
+                            }
+                            
+                            // Formatear el valor para mostrar
+                            const formattedValue = formatNumber(displayValue);
+                            
+                            // Determinar clase según si es valor positivo o negativo
+                            const valueClass = displayValue >= 0 ? 'positive' : 'negative';
+                            
+                            // Crear elemento para el valor
+                            const valueElement = document.createElement('div');
+                            valueElement.className = `cell-value ${valueClass}`;
+                            valueElement.textContent = formattedValue;
+                            cellContent.appendChild(valueElement);
+                            
+                            // Añadir KPIs si existen en lugar del mini gráfico inicialmente
+                            if (cell.kpis) {
+                                const kpiContainer = document.createElement('div');
+                                kpiContainer.className = 'kpi-container';
+                                
+                                // Valor de Previsión en €
+                                if (cell.kpis.prevValue !== undefined) {
+                                    const prevValueItem = document.createElement('div');
+                                    prevValueItem.className = 'kpi-item neutral';
+                                    prevValueItem.innerHTML = `
+                                        <span class="kpi-label">PREV</span>
+                                        <span class="kpi-value">${formatNumber(cell.kpis.prevValue)}</span>
+                                    `;
+                                    kpiContainer.appendChild(prevValueItem);
+                                }
+                                
+                                // % REAL/PREV
+                                if (cell.kpis.realPrevPercent !== undefined) {
+                                    const realPrevItem = document.createElement('div');
+                                    const percent = cell.kpis.realPrevPercent;
+                                    realPrevItem.className = `kpi-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    realPrevItem.innerHTML = `
+                                        <span class="kpi-label">REAL/PREV</span>
+                                        <span class="kpi-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    kpiContainer.appendChild(realPrevItem);
+                                }
+                                
+                                // % PPTO/PREV
+                                if (cell.kpis.pptoPrevPercent !== undefined) {
+                                    const pptoPrevItem = document.createElement('div');
+                                    const percent = cell.kpis.pptoPrevPercent;
+                                    pptoPrevItem.className = `kpi-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    pptoPrevItem.innerHTML = `
+                                        <span class="kpi-label">PPTO/PREV</span>
+                                        <span class="kpi-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    kpiContainer.appendChild(pptoPrevItem);
+                                }
+                                
+                                // REAL-PREVISIÓN en €
+                                if (cell.kpis.pendingValue !== undefined) {
+                                    const pendingItem = document.createElement('div');
+                                    const pending = cell.kpis.pendingValue;
+                                    pendingItem.className = `kpi-item ${pending <= 0 ? 'positive' : 'negative'}`;
+                                    pendingItem.innerHTML = `
+                                        <span class="kpi-label">PENDIENTE</span>
+                                        <span class="kpi-value">${formatNumber(pending)}</span>
+                                    `;
+                                    kpiContainer.appendChild(pendingItem);
+                                }
+                                
+                                cellContent.appendChild(kpiContainer);
+                            } else if (seriesData.length > 0) {
+                                // Si no hay KPIs pero sí datos de serie temporal, mostrar mini gráfico como fallback
+                                const miniChart = document.createElement('div');
+                                miniChart.className = 'mini-chart';
+                                miniChart.style.display = 'none'; // Ocultar inicialmente
+                                cellContent.appendChild(miniChart);
+                                
+                                // Crear mini gráfico con D3 (se mostrará al hacer clic)
+                                createMiniChart(miniChart, seriesData, valueClass);
+                            }
+                            
+                            // Añadir información comparativa si existe
+                            if (cell.comparative && (data.hasPpto || data.hasPrev)) {
+                                const comparative = document.createElement('div');
+                                comparative.className = 'cell-comparative';
+                                
+                                // PRV/PTO
+                                if (data.hasPpto && data.hasPrev && cell.lastPptoValue !== 0) {
+                                    const prvPtoItem = document.createElement('div');
+                                    const percent

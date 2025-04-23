@@ -1,0 +1,205 @@
+// Escala para valores con un pequeño margen
+            const y = d3.scaleLinear()
+                .domain([minValue < 0 ? minValue * 1.1 : 0, maxValue * 1.1])
+                .range([height, 0]);
+            
+            // Crear línea
+            const line = d3.line()
+                .x((d, i) => x(i))
+                .y(d => y(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            // Añadir línea al SVG
+            svg.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', valueClass === 'positive' ? '#3b82f6' : '#ef4444')
+                .attr('stroke-width', 1.5)
+                .attr('d', line);
+            
+            // Añadir área bajo la línea
+            const area = d3.area()
+                .x((d, i) => x(i))
+                .y0(y(0))
+                .y1(d => y(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            svg.append('path')
+                .datum(data)
+                .attr('fill', valueClass === 'positive' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)')
+                .attr('d', area);
+        }
+        
+        // Función para mostrar detalles de una celda
+        function showCellDetails(cellKey) {
+            if (!cellData[cellKey]) return;
+            
+            const cell = cellData[cellKey];
+            
+            // Configurar título del modal
+            modalTitle.textContent = `${cell.category} - ${cell.subcategory}`;
+            
+            // Limpiar contenedor del gráfico y mostrar gráfico
+            detailChart.innerHTML = '';
+            
+            // Ordenar serie temporal
+            const seriesData = [...cell.timeSeries].sort((a, b) => {
+                if (a.period < b.period) return -1;
+                if (a.period > b.period) return 1;
+                return 0;
+            });
+            
+            // Crear gráfico detallado si hay suficientes datos
+            if (seriesData.length > 1) {
+                // Crear gráfico detallado con D3
+                createDetailChart(detailChart, seriesData, cell);
+                chartStatus.textContent = `Mostrando ${seriesData.length} períodos`;
+            } else {
+                detailChart.innerHTML = '<div style="text-align: center; padding: 20px;">No hay suficientes datos para mostrar un gráfico</div>';
+                chartStatus.textContent = '';
+            }
+            
+            // Crear tabla de detalles
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th>Valor</th>
+                            ${data.hasPpto ? '<th>Presupuesto</th>' : ''}
+                            ${data.hasPrev ? '<th>Previsión</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Ordenar series temporales para mostrar los más recientes primero
+            const tableData = [...cell.timeSeries].sort((a, b) => {
+                // Intentar ordenar por período de forma descendente
+                if (a.period < b.period) return 1;
+                if (a.period > b.period) return -1;
+                return 0;
+            });
+            
+            // Añadir filas con datos
+            tableData.forEach(point => {
+                const valueClass = point.value >= 0 ? 'positive' : 'negative';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${point.period}</td>
+                        <td class="${valueClass}">${formatNumber(point.value)}</td>
+                        ${data.hasPpto ? `<td>${formatNumber(point.ppto || 0)}</td>` : ''}
+                        ${data.hasPrev ? `<td>${formatNumber(point.prev || 0)}</td>` : ''}
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            // Mostrar información de KPIs si existe
+            if (cell.kpis) {
+                tableHTML += `
+                    <h3>Indicadores KPI</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicador</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                if (cell.kpis.prevValue !== undefined) {
+                    tableHTML += `
+                        <tr>
+                            <td>Previsión (€)</td>
+                            <td>${formatNumber(cell.kpis.prevValue)}</td>
+                        </tr>
+                    `;
+                }
+                
+                if (cell.kpis.realPrevPercent !== undefined) {
+                    tableHTML += `
+                        <tr>
+                            <td>REAL/PREV (%)</td>
+                            <td>${formatNumber(cell.kpis.realPrevPercent, 1)}%</td>
+                        </tr>
+                    `;
+                }
+                
+                if (cell.kpis.pptoPrevPercent !== undefined) {
+                    tableHTML += `
+                        <tr>
+                            <td>PPTO/PREV (%)</td>
+                            <td>${formatNumber(cell.kpis.pptoPrevPercent, 1)}%</td>
+                        </tr>
+                    `;
+                }
+                
+                if (cell.kpis.pendingValue !== undefined) {
+                    tableHTML += `
+                        <tr>
+                            <td>Pendiente (€)</td>
+                            <td>${formatNumber(cell.kpis.pendingValue)}</td>
+                        </tr>
+                    `;
+                }
+                
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            // Actualizar tabla en el modal
+            detailTable.innerHTML = tableHTML;
+            
+            // Mostrar modal
+            detailModal.style.display = 'block';
+        }
+        
+        // Función para mostrar gráfico completo de una celda
+        function showCellChart(cellKey) {
+            if (!cellData[cellKey]) return;
+            
+            const cell = cellData[cellKey];
+            
+            // Configurar título del modal
+            modalTitle.textContent = `Gráfico: ${cell.category} - ${cell.subcategory}`;
+            
+            // Limpiar contenedor del gráfico
+            detailChart.innerHTML = '';
+            
+            // Ordenar serie temporal
+            const seriesData = [...cell.timeSeries].sort((a, b) => {
+                if (a.period < b.period) return -1;
+                if (a.period > b.period) return 1;
+                return 0;
+            });
+            
+            // Verificar que hay datos suficientes
+            if (seriesData.length <= 1) {
+                detailChart.innerHTML = '<div style="text-align: center; padding: 20px;">No hay suficientes datos para mostrar un gráfico</div>';
+                chartStatus.textContent = '';
+                detailTable.innerHTML = '';
+                detailModal.style.display = 'block';
+                return;
+            }
+            
+            // Crear gráfico detallado con D3
+            createDetailChart(detailChart, seriesData, cell);
+            
+            // Actualizar estado del gráfico
+            chartStatus.textContent = `Mostrando ${seriesData.length} períodos`;
+            
+            // Limpiar tabla para enfocarse en el gráfico
+            detailTable.innerHTML = '';
+            
+            // Mostrar modal
+            detailModal.style.display = 'block';
+        }

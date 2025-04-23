@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${TITLE}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2, h3 {
+            color: #1e3a8a;
+        }
+        
+        h1 {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .header-info {
+            font-size: 12px;
+            color: #64748b;
+            text-align: right;
+            margin-top: -15px;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+        }
+        
+        th {
+            background-color: #f1f5f9;
+            text-align: center;
+        }
+        
+        .mini-chart {
+            height: 30px;
+            width: 100%;
+            margin-top: 2px;
+        }
+        
+        .cell-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .cell-content:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        .cell-content:focus-within {
+            outline: 2px solid #3b82f6;
+            border-radius: 4px;
+        }
+        
+        .cell-value {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2px;
+        }
+        
+        .cell-comparative {
+            display: flex;
+            flex-direction: column;
+            font-size: 9px;
+            margin: 2px 0;
+            width: 100%;
+        }
+        
+        .comp-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 3px;
+            border-radius: 2px;
+            margin: 1px 0;
+        }
+        
+        .comp-label {
+            font-weight: bold;
+        }
+        
+        .comp-value {
+            margin-left: 4px;
+        }
+        
+        .comp-item.positive {
+            background-color: rgba(22, 163, 74, 0.1);
+            color: #15803d;
+        }
+        
+        .comp-item.negative {
+            background-color: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+        }
+        
+        .positive {
+            color: #1d4ed8;
+        }
+        
+        .negative {
+            color: #dc2626;
+        }
+        
+        .cell-periods {
+            text-align: center;
+            font-size: 8px;
+            color: #64748b;
+            margin-top: 1px;
+        }
+        
+        #loadingIndicator {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #matrixContainer {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 20px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .detail-chart {
+            height: 300px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        
+        .status-indicator {
+            display: none;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        
+        .control-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+        
+        select, input, button {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+        
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .info-box {
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .warning-box {
+            background-color: #fff7ed;
+            border-left: 4px solid #f97316;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .project-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .project-selector label {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .project-selector select {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        /* Tooltip estilos */
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            max-width: 250px;
+            z-index: 10000;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px auto;
+            }
+        }
+        
+        /* Estilos para el modo oscuro */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1a202c;
+                color: #e2e8f0;
+            }
+            
+            .container {
+                background-color: #2d3748;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            }
+            
+            h1, h2, h3 {
+                color: #90cdf4;
+            }
+            
+            table, th, td {
+                border-color: #4a5568;
+            }
+            
+            th {
+                background-color: #4a5568;
+                color: #e2e8f0;
+            }
+            
+            .cell-content:hover {
+                background-color: rgba(59, 130, 246, 0.1);
+            }
+            
+            .comp-item.positive {
+                background-color: rgba(22, 163, 74, 0.2);
+                color: #48bb78;
+            }
+            
+            .comp-item.negative {
+                background-color: rgba(220, 38, 38, 0.2);
+                color: #f56565;
+            }
+            
+            .positive {
+                color: #63b3ed;
+            }
+            
+            .negative {
+                color: #f56565;
+            }
+            
+            select, input {
+                background-color: #2d3748;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+            
+            .modal-content {
+                background-color: #2d3748;
+            }
+            
+            .close {
+                color: #e2e8f0;
+            }
+            
+            .tab {
+                background-color: #4a5568;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+            
+            .tab.active {
+                background-color: #2d3748;
+                border-bottom-color: #2d3748;
+            }
+            
+            .tab-content {
+                border-color: #4a5568;
+                background-color: #2d3748;
+            }
+            
+            .tooltip {
+                background-color: #2d3748;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>${TITLE}</h1>
+        <div class="header-info">Generado el: ${GENERATED_DATE}</div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="dashboard">Cuadro de Mando</div>
+            <div class="tab" data-tab="info">Información</div>
+        </div>
+        
+        <div id="tabDashboard" class="tab-content active">
+            <div id="statusIndicator" class="status-indicator"></div>
+            
+            <div id="matrixContainer">
+                <div class="controls">
+                    <div class="control-group">
+                        <label class="control-label">Mostrar:</label>
+                        <select id="viewMode">
+                            <option value="top">Top categorías y subcategorías</option>
+                            <option value="all">Todas las categorías y subcategorías</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group" id="rowsControl">
+                        <label class="control-label">Filas (max):</label>
+                        <select id="maxRows">
+                            <option value="5">5 filas</option>
+                            <option value="10" selected>10 filas</option>
+                            <option value="15">15 filas</option>
+                            <option value="20">20 filas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group" id="colsControl">
+                        <label class="control-label">Columnas (max):</label>
+                        <select id="maxCols">
+                            <option value="4">4 columnas</option>
+                            <option value="6">6 columnas</option>
+                            <option value="8" selected>8 columnas</option>
+                            <option value="10">10 columnas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Filtro de período:</label>
+                        <select id="periodFilter">
+                            <option value="all">Todos los períodos</option>
+                            <!-- Options will be added dynamically -->
+                        </select>
+                    </div>
+                    
+                    <button id="btnExport" title="Exportar a CSV">
+                        Exportar CSV
+                    </button>
+                </div>
+                
+                <div id="projectSelectorContainer">
+                    <!-- Project selector will be added here if applicable -->
+                </div>
+                
+                <table id="matrixTable">
+                    <thead>
+                        <tr id="headerRow">
+                            <th>Categoría / Subcategoría</th>
+                            <!-- Headers will be added dynamically -->
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Rows will be added dynamically -->
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                    <div style="display: flex; gap: 20px;">
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 12px; height: 12px; background-color: #3b82f6; margin-right: 5px; border-radius: 2px;"></div>
+                            <span style="font-size: 12px;">Valores positivos: Costes/Gastos</span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 12px; height: 12px; background-color: #ef4444; margin-right: 5px; border-radius: 2px;"></div>
+                            <span style="font-size: 12px;">Valores negativos: Ingresos/Ajustes</span>
+                        </div>
+                    </div>
+                    
+                    <p style="font-size: 12px; color: #64748b; margin: 0;">
+                        Haz clic en cualquier celda para ver el detalle | Doble clic para gráfico completo
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tabInfo" class="tab-content">
+            <h2>Información del Cuadro de Mando</h2>
+            
+            <div class="info-box">
+                <p>Este cuadro de mando visualiza datos extraídos de un archivo Excel.</p>
+                <p><strong>Resumen de datos:</strong></p>
+                <ul>
+                    <li>Categorías: ${CATEGORY_COUNT}</li>
+                    <li>Subcategorías: ${SUBCATEGORY_COUNT}</li>
+                    <li>Períodos: ${PERIOD_COUNT}</li>
+                </ul>
+            </div>
+            
+            <h3>Datos de muestra</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            ${'<th>Proyecto</th>' if $HAS_PROJECTS == 'true' else ''}
+                            <th>Categoría</th>
+                            <th>Subcategoría</th>
+                            <th>Valor</th>
+                            ${
+                                '<th>PRV/PTO</th><th>REA/PRV</th><th>PDTE</th>' 
+                                if $HAS_PPTO == 'true' and $HAS_PREV == 'true' 
+                                else ''
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${SAMPLE_TABLE_ROWS}
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Instrucciones</h3>
+            <ol>
+                <li>Utiliza los controles en la parte superior para filtrar y ajustar la visualización del cuadro de mando.</li>
+                <li>Haz clic en cualquier celda para ver el detalle de los datos.</li>
+                <li>Haz doble clic para ver un gráfico detallado.</li>
+                <li>Utiliza el botón "Exportar CSV" para descargar los datos en formato CSV.</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2 id="modalTitle">Detalle</h2>
+            <div class="detail-chart" id="detailChart">
+                <div class="chart-placeholder">Cargando gráfico...</div>
+            </div>
+            <div id="chartStatus" style="text-align: center; color: #64748b; margin: 10px 0; font-size: 12px;"></div>
+            <div id="detailTable"></div>
+        </div>
+    </div>
+    
+    <!-- Incluir D3.js para visualizaciones -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+        // Datos cargados desde Python
+        const initialData = ${DATA_JSON};
+        
+        // Referencias a elementos DOM
+        const headerRow = document.getElementById('headerRow');
+        const tableBody = document.getElementById('tableBody');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const viewMode = document.getElementById('viewMode');
+        const maxRows = document.getElementById('maxRows');
+        const maxCols = document.getElementById('maxCols');
+        const periodFilter = document.getElementById('periodFilter');
+        const projectSelectorContainer = document.getElementById('projectSelectorContainer');
+        const btnExport = document.getElementById('btnExport');
+        
+        // Modal de detalle
+        const detailModal = document.getElementById('detailModal');
+        const closeModal = document.getElementById('closeModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const detailChart = document.getElementById('detailChart');
+        const detailTable = document.getElementById('detailTable');
+        const chartStatus = document.getElementById('chartStatus');
+        
+        // Variables para almacenar datos procesados
+        let data = null;
+        let categories = [];
+        let subcategories = [];
+        let periods = [];
+        let projects = [];
+        let cellData = {};
+        
+        // Inicializar aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+        
+        function initializeApp() {
+            // Cargar datos
+            data = JSON.parse(JSON.stringify(initialData));
+            
+            // Extraer datos principales
+            categories = data.categories || [];
+            subcategories = data.subcategories || [];
+            periods = data.periods || [];
+            projects = data.projects || [];
+            cellData = data.cellData || {};
+            
+            // Inicializar selectores de período
+            initializePeriodSelector();
+            
+            // Inicializar selector de proyecto si es aplicable
+            if (data.hasProjects && projects.length > 0) {
+                initializeProjectSelector();
+            }
+            
+            // Generar la matriz
+            generateMatrix();
+            
+            // Event listeners
+            setupEventListeners();
+            
+            // Inicializar pestañas
+            initializeTabs();
+            
+            // Inicializar tooltip
+            initializeTooltip();
+        }
+        
+        function initializePeriodSelector() {
+            // Limpiar opciones existentes
+            periodFilter.innerHTML = '<option value="all">Todos los períodos</option>';
+            
+            // Añadir períodos en orden
+            periods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period;
+                option.textContent = period;
+                periodFilter.appendChild(option);
+            });
+            
+            // Seleccionar el último período por defecto si hay períodos
+            if (periods.length > 0) {
+                periodFilter.value = periods[periods.length - 1];
+            }
+        }
+        
+        function initializeProjectSelector() {
+            const projectSelector = document.createElement('div');
+            projectSelector.className = 'project-selector';
+            projectSelector.innerHTML = `
+                <label>Proyecto:</label>
+                <select id="projectFilter">
+                    <option value="all">Todos los proyectos</option>
+                </select>
+            `;
+            
+            // Añadir al contenedor
+            projectSelectorContainer.appendChild(projectSelector);
+            
+            // Obtener referencia al select
+            const projectFilter = document.getElementById('projectFilter');
+            
+            // Añadir proyectos
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project;
+                option.textContent = project;
+                projectFilter.appendChild(option);
+            });
+            
+            // Event listener para cambios en el proyecto
+            projectFilter.addEventListener('change', generateMatrix);
+        }
+        
+        function setupEventListeners() {
+            // Event listeners para controles
+            viewMode.addEventListener('change', generateMatrix);
+            maxRows.addEventListener('change', generateMatrix);
+            maxCols.addEventListener('change', generateMatrix);
+            periodFilter.addEventListener('change', generateMatrix);
+            btnExport.addEventListener('click', exportToCSV);
+            
+            // Event listeners para modales
+            closeModal.addEventListener('click', function() {
+                detailModal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', function(event) {
+                if (event.target === detailModal) {
+                    detailModal.style.display = 'none';
+                }
+            });
+            
+            // Event listeners para las pestañas
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+        }
+        
+        function initializeTabs() {
+            // Referencias a pestañas
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // Inicializar primera pestaña como activa
+            tabs[0].classList.add('active');
+            document.getElementById('tabDashboard').classList.add('active');
+            
+            // Funcionalidad para cambiar entre pestañas
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remover clase activa de todas las pestañas
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // Activar pestaña seleccionada
+                    this.classList.add('active');
+                    const tabId = 'tab' + this.getAttribute('data-tab').charAt(0).toUpperCase() + this.getAttribute('data-tab').slice(1);
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        }
+        
+        function switchTab(tabName) {
+            // Desactivar todas las pestañas
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Activar pestaña seleccionada
+            document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+        }
+        
+        function initializeTooltip() {
+            // Crear elemento tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            document.body.appendChild(tooltip);
+            
+            // Variables para controlar el tooltip
+            let tooltipTimer;
+            
+            // Función para mostrar tooltip
+            window.showTooltip = function(event, content) {
+                clearTimeout(tooltipTimer);
+                tooltip.innerHTML = content;
+                tooltip.style.opacity = 1;
+                tooltip.style.left = (event.pageX + 10) + 'px';
+                tooltip.style.top = (event.pageY + 10) + 'px';
+            };
+            
+            // Función para ocultar tooltip
+            window.hideTooltip = function() {
+                tooltipTimer = setTimeout(() => {
+                    tooltip.style.opacity = 0;
+                }, 200);
+            };
+        }
+// Función para formatear números
+function formatNumber(value, decimals = 0) {
+            // Aplicar formato con separador de miles y decimales especificados
+            return new Intl.NumberFormat('es-ES', {
+                maximumFractionDigits: decimals,
+                minimumFractionDigits: decimals
+            }).format(value);
+        }
+        
+        // Función para crear mini gráficos
+        function createMiniChart(container, data, valueClass) {
+            // Obtener dimensiones del contenedor
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Crear SVG usando D3
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            // Definir escalas
+            const x = d3.scaleLinear()
+                .domain([0, data.length - 1])
+                .range([0, width]);
+            
+            // Encontrar valores mínimo y máximo
+            const values = data.map(d => d.value);
+            const minValue = d3.min(values);
+            const maxValue = d3.max(values);
+            
+            // Escala para valores con un pequeño margen
+            const y = d3.scaleLinear()
+                .domain([minValue < 0 ? minValue * 1.1 : 0, maxValue * 1.1])
+                .range([height, 0]);
+            
+            // Crear línea
+            const line = d3.line()
+                .x((d, i) => x(i))
+                .y(d => y(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            // Añadir línea al SVG
+            svg.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', valueClass === 'positive' ? '#3b82f6' : '#ef4444')
+                .attr('stroke-width', 1.5)
+                .attr('d', line);
+            
+            // Añadir área bajo la línea
+            const area = d3.area()
+                .x((d, i) => x(i))
+                .y0(y(0))
+                .y1(d => y(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            svg.append('path')
+                .datum(data)
+                .attr('fill', valueClass === 'positive' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)')
+                .attr('d', area);
+        }
+// Función para formatear números
+function formatNumber(value, decimals = 0) {
+            // Aplicar formato con separador de miles y decimales especificados
+            return new Intl.NumberFormat('es-ES', {
+                maximumFractionDigits: decimals,
+                minimumFractionDigits: decimals
+            }).format(value);
+        }
+        
+        // Función para crear mini gráficos
+        function createMiniChart(container, data, valueClass) {
+            // Obtener dimensiones del contenedor
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Crear SVG usando D3
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            // Definir escalas
+            const x = d3.scaleLinear()
+                .domain([0, data.length - 1])
+                .range([0, width]);
+            
+            // Encontrar valores mínimo y máximo
+            const values = data.map(d => d.value);
+            const minValue = d3.min(values);
+            const maxValue = d3.max(values);
+            
+            // Escala para valores con un pequeño margen
+            const y = d3.scaleLinear()
+                .domain([minValue < 0 ? minValue * 1.1 : 0, maxValue * 1.1])
+                .range([height, 0]);
+            
+            // Crear línea
+            const line = d3.line()
+                .x((d, i) => x(i))
+                .y(d => y(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            // Añadir línea al SVG
+            svg.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', valueClass === 'positive' ? '#3b82f6' : '#ef4444')
+                .attr('stroke-width', 1.5)
+                .attr('d', line);
+            
+            // Añadir área bajo la línea
+            const area = d3.area()
+                .x((d, i) => x(i))
+                .y0(y(0))
+                .y1(d => y(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            svg.append('path')
+                .datum(data)
+                .attr('fill', valueClass === 'positive' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)')
+                .attr('d', area);
+        }
+// Función para mostrar detalles de una celda
+function showCellDetails(cellKey) {
+            if (!cellData[cellKey]) return;
+            
+            const cell = cellData[cellKey];
+            
+            // Configurar título del modal
+            modalTitle.textContent = `${cell.category} - ${cell.subcategory}`;
+            
+            // Crear tabla de detalles
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th>Valor</th>
+                            ${data.hasPpto ? '<th>Presupuesto</th>' : ''}
+                            ${data.hasPrev ? '<th>Previsión</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Ordenar series temporales para mostrar los más recientes primero
+            const seriesData = [...cell.timeSeries].sort((a, b) => {
+                // Intentar ordenar por período de forma descendente
+                if (a.period < b.period) return 1;
+                if (a.period > b.period) return -1;
+                return 0;
+            });
+            
+            // Añadir filas con datos
+            seriesData.forEach(point => {
+                const valueClass = point.value >= 0 ? 'positive' : 'negative';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${point.period}</td>
+                        <td class="${valueClass}">${formatNumber(point.value)}</td>
+                        ${data.hasPpto ? `<td>${formatNumber(point.ppto || 0)}</td>` : ''}
+                        ${data.hasPrev ? `<td>${formatNumber(point.prev || 0)}</td>` : ''}
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            // Actualizar tabla en el modal
+            detailTable.innerHTML = tableHTML;
+            
+            // Mostrar modal
+            detailModal.style.display = 'block';
+        }
+        
+        // Función para mostrar gráfico completo de una celda
+        function showCellChart(cellKey) {
+            if (!cellData[cellKey]) return;
+            
+            const cell = cellData[cellKey];
+            
+            // Configurar título del modal
+            modalTitle.textContent = `Gráfico: ${cell.category} - ${cell.subcategory}`;
+            
+            // Limpiar contenedor del gráfico
+            detailChart.innerHTML = '';
+            
+            // Ordenar serie temporal
+            const seriesData = [...cell.timeSeries].sort((a, b) => {
+                if (a.period < b.period) return -1;
+                if (a.period > b.period) return 1;
+                return 0;
+            });
+            
+            // Verificar que hay datos suficientes
+            if (seriesData.length <= 1) {
+                detailChart.innerHTML = '<div style="text-align: center; padding: 20px;">No hay suficientes datos para mostrar un gráfico</div>';
+                chartStatus.textContent = '';
+                detailTable.innerHTML = '';
+                detailModal.style.display = 'block';
+                return;
+            }
+            
+            // Crear gráfico detallado con D3
+            createDetailChart(detailChart, seriesData, cell);
+            
+            // Actualizar estado del gráfico
+            chartStatus.textContent = `Mostrando ${seriesData.length} períodos`;
+            
+            // Limpiar tabla para enfocarse en el gráfico
+            detailTable.innerHTML = '';
+            
+            // Mostrar modal
+            detailModal.style.display = 'block';
+        }
+        
+        // Función para crear gráfico detallado
+        function createDetailChart(container, data, cell) {
+            // Configurar dimensiones
+            const margin = {top: 20, right: 30, bottom: 50, left: 60};
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = container.clientHeight - margin.top - margin.bottom;
+            
+            // Crear SVG
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', container.clientWidth)
+                .attr('height', container.clientHeight)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Procesar datos para el gráfico
+            const chartData = data.map(d => ({
+                period: d.period,
+                value: d.value,
+                ppto: d.ppto || null,
+                prev: d.prev || null
+            }));
+            
+            // Configurar escalas
+            const x = d3.scaleBand()
+                .domain(chartData.map(d => d.period))
+                .range([0, width])
+                .padding(0.2);
+            
+            // Encontrar valores mínimo y máximo incluyendo ppto y prev si existen
+            const allValues = [];
+            chartData.forEach(d => {
+                allValues.push(d.value);
+                if (d.ppto !== null) allValues.push(d.ppto);
+                if (d.prev !== null) allValues.push(d.prev);
+            });
+            
+            const minValue = d3.min(allValues);
+            const maxValue = d3.max(allValues);
+            
+            // Asegurar que el gráfico muestra el cero
+            const yDomain = [
+                minValue < 0 ? minValue * 1.1 : 0,
+                maxValue > 0 ? maxValue * 1.1 : 0
+            ];
+            
+            const y = d3.scaleLinear()
+                .domain(yDomain)
+                .range([height, 0]);
+            
+            // Añadir ejes
+            svg.append('g')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll('text')
+                .style('text-anchor', 'end')
+                .attr('dx', '-.8em')
+                .attr('dy', '.15em')
+                .attr('transform', 'rotate(-45)');
+            
+            svg.append('g')
+                .call(d3.axisLeft(y)
+                    .tickFormat(d => formatNumber(d)));
+            
+            // Añadir línea horizontal para cero
+            svg.append('line')
+                .attr('x1', 0)
+                .attr('y1', y(0))
+                .attr('x2', width)
+                .attr('y2', y(0))
+                .attr('stroke', '#ccc')
+                .attr('stroke-width', 1)
+                .attr('stroke-dasharray', '3,3');
+            
+            // Añadir barras para valores
+            svg.selectAll('.bar')
+                .data(chartData)
+                .enter()
+                .append('rect')
+                .attr('class', 'bar')
+                .attr('x', d => x(d.period))
+                .attr('width', x.bandwidth())
+                .attr('y', d => d.value >= 0 ? y(d.value) : y(0))
+                .attr('height', d => Math.abs(y(d.value) - y(0)))
+                .attr('fill', d => d.value >= 0 ? '#3b82f6' : '#ef4444');
+            
+            // Añadir línea para presupuesto si existe
+            if (data.some(d => d.ppto !== undefined && d.ppto !== null)) {
+                const line = d3.line()
+                    .x(d => x(d.period) + x.bandwidth() / 2)
+                    .y(d => y(d.ppto))
+                    .defined(d => d.ppto !== null);
+                
+                svg.append('path')
+                    .datum(chartData)
+                    .attr('fill', 'none')
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 2)
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('d', line);
+                
+                // Añadir puntos para presupuesto
+                svg.selectAll('.ppto-point')
+                    .data(chartData.filter(d => d.ppto !== null))
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'ppto-point')
+                    .attr('cx', d => x(d.period) + x.bandwidth() / 2)
+                    .attr('cy', d => y(d.ppto))
+                    .attr('r', 4)
+                    .attr('fill', '#000');
+            }
+            
+            // Añadir línea para previsión si existe
+            if (data.some(d => d.prev !== undefined && d.prev !== null)) {
+                const line = d3.line()
+                    .x(d => x(d.period) + x.bandwidth() / 2)
+                    .y(d => y(d.prev))
+                    .defined(d => d.prev !== null);
+                
+                svg.append('path')
+                    .datum(chartData)
+                    .attr('fill', 'none')
+                    .attr('stroke', '#f97316')
+                    .attr('stroke-width', 2)
+                    .attr('d', line);
+                
+                // Añadir puntos para previsión
+                svg.selectAll('.prev-point')
+                    .data(chartData.filter(d => d.prev !== null))
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'prev-point')
+                    .attr('cx', d => x(d.period) + x.bandwidth() / 2)
+                    .attr('cy', d => y(d.prev))
+                    .attr('r', 4)
+                    .attr('fill', '#f97316');
+            }
+            
+            // Añadir etiquetas de valor
+            svg.selectAll('.value-label')
+                .data(chartData)
+                .enter()
+                .append('text')
+                .attr('class', 'value-label')
+                .attr('text-anchor', 'middle')
+                .attr('x', d => x(d.period) + x.bandwidth() / 2)
+                .attr('y', d => d.value >= 0 ? y(d.value) - 5 : y(d.value) + 15)
+                .text(d => formatNumber(d.value))
+                .attr('font-size', '10px')
+                .attr('fill', d => d.value >= 0 ? '#1d4ed8' : '#dc2626');
+                
+            // Añadir leyenda
+            const legend = svg.append('g')
+                .attr('transform', `translate(${width / 2}, ${height + margin.bottom - 10})`);
+            
+            legend.append('rect')
+                .attr('x', -120)
+                .attr('width', 12)
+                .attr('height', 12)
+                .attr('fill', '#3b82f6');
+            
+            legend.append('text')
+                .attr('x', -100)
+                .attr('y', 9)
+                .text('Valor Real')
+                .attr('font-size', '10px');
+            
+            if (data.some(d => d.ppto !== undefined && d.ppto !== null)) {
+                legend.append('line')
+                    .attr('x1', -60)
+                    .attr('y1', 6)
+                    .attr('x2', -40)
+                    .attr('y2', 6)
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 2)
+                    .attr('stroke-dasharray', '5,5');
+                
+                legend.append('text')
+                    .attr('x', -35)
+                    .attr('y', 9)
+                    .text('Presupuesto')
+                    .attr('font-size', '10px');
+            }
+            
+            if (data.some(d => d.prev !== undefined && d.prev !== null)) {
+                legend.append('line')
+                    .attr('x1', 40)
+                    .attr('y1', 6)
+                    .attr('x2', 60)
+                    .attr('y2', 6)
+                    .attr('stroke', '#f97316')
+                    .attr('stroke-width', 2);
+                
+                legend.append('text')
+                    .attr('x', 65)
+                    .attr('y', 9)
+                    .text('Previsión')
+                    .attr('font-size', '10px');
+            }
+        }
+// Función para exportar datos a CSV
+function exportToCSV() {
+            // Obtener parámetros actuales
+            const mode = viewMode.value;
+            const periodValue = periodFilter.value;
+            
+            // Determinar proyecto si aplica
+            let projectFilter = 'all';
+            const projectFilterElement = document.getElementById('projectFilter');
+            if (projectFilterElement) {
+                projectFilter = projectFilterElement.value;
+            }
+            
+            // Crear filas para CSV
+            const rows = [];
+            
+            // Encabezado
+            let header = ['Categoría', 'Subcategoría'];
+            if (projectFilter === 'all' && data.hasProjects) {
+                header.unshift('Proyecto');
+            }
+            
+            if (periodValue === 'all') {
+                header.push(...periods);
+            } else {
+                header.push(periodValue);
+            }
+            
+            rows.push(header);
+            
+            // Datos
+            Object.entries(cellData).forEach(([key, cell]) => {
+                // Aplicar filtro de proyecto
+                if (projectFilter !== 'all' && cell.projectId !== projectFilter) {
+                    return;
+                }
+                
+                const row = [];
+                
+                // Añadir proyecto si aplica
+                if (projectFilter === 'all' && data.hasProjects) {
+                    row.push(cell.projectId || '');
+                }
+                
+                // Añadir categoría y subcategoría
+                row.push(cell.category);
+                row.push(cell.subcategory);
+                
+                // Añadir valores según el filtro de período
+                if (periodValue === 'all') {
+                    // Crear mapa de período a valor
+                    const periodMap = {};
+                    cell.timeSeries.forEach(point => {
+                        periodMap[point.period] = point.value;
+                    });
+                    
+                    // Añadir valores para cada período en el orden correcto
+                    periods.forEach(period => {
+                        row.push(periodMap[period] !== undefined ? periodMap[period] : '');
+                    });
+                } else {
+                    // Buscar valor para el período específico
+                    const periodData = cell.timeSeries.find(p => p.period === periodValue);
+                    row.push(periodData ? periodData.value : '');
+                }
+                
+                rows.push(row);
+            });
+            
+            // Convertir a CSV
+            let csv = rows.map(row => row.join(',')).join('\n');
+            
+            // Crear blob y descargar
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'dashboard_export.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function generateMatrix() {
+            try {
+                // Obtener parámetros de visualización
+                const mode = viewMode.value;
+                const rows = parseInt(maxRows.value);
+                const cols = parseInt(maxCols.value);
+                const periodValue = periodFilter.value;
+                
+                // Obtener filtro de proyecto si existe
+                let projectFilter = 'all';
+                const projectFilterElement = document.getElementById('projectFilter');
+                if (projectFilterElement) {
+                    projectFilter = projectFilterElement.value;
+                }
+                
+                // Limpiar tabla existente
+                while (headerRow.children.length > 1) {
+                    headerRow.removeChild(headerRow.lastChild);
+                }
+                tableBody.innerHTML = '';
+                
+                // Determinar categorías y subcategorías a mostrar basado en el modo
+                let categoriesToShow = [];
+                let subcategoriesToShow = [];
+                
+                if (mode === 'top') {
+                    // Calcular totales por categoría y subcategoría
+                    const catTotals = {};
+                    const subcatTotals = {};
+                    
+                    // Utilizar totales proporcionados por el backend si están disponibles
+                    if (data.categoryTotals && Object.keys(data.categoryTotals).length > 0) {
+                        Object.assign(catTotals, data.categoryTotals);
+                    } else {
+                        // Calcular totales si no están disponibles
+                        Object.values(cellData).forEach(cell => {
+                            const category = cell.category;
+                            const subcategory = cell.subcategory;
+                            const value = Math.abs(cell.lastValue || 0);
+                            
+                            // Filtrar por proyecto si es necesario
+                            if (projectFilter !== 'all' && cell.projectId !== projectFilter) {
+                                return;
+                            }
+                            
+                            // Acumular por categoría
+                            if (!catTotals[category]) {
+                                catTotals[category] = 0;
+                            }
+                            catTotals[category] += value;
+                            
+                            // Acumular por subcategoría
+                            if (!subcatTotals[subcategory]) {
+                                subcatTotals[subcategory] = 0;
+                            }
+                            subcatTotals[subcategory] += value;
+                        });
+                    }
+                    
+                    // Ordenar categorías por total
+                    categoriesToShow = Object.entries(catTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, rows)
+                        .map(entry => entry[0]);
+                    
+                    // Ordenar subcategorías por total
+                    subcategoriesToShow = Object.entries(subcatTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, cols)
+                        .map(entry => entry[0]);
+                } else {
+                    // Modo 'all': mostrar todas las categorías y subcategorías
+                    categoriesToShow = categories.slice(0, rows);
+                    subcategoriesToShow = subcategories.slice(0, cols);
+                }
+                
+                // Generar encabezados de columna
+                subcategoriesToShow.forEach(subcategory => {
+                    const th = document.createElement('th');
+                    th.textContent = subcategory;
+                    headerRow.appendChild(th);
+                });
+                
+                // Generar filas de la matriz
+                categoriesToShow.forEach(category => {
+                    const tr = document.createElement('tr');
+                    
+                    // Celda de categoría
+                    const categoryCell = document.createElement('td');
+                    categoryCell.textContent = category;
+                    categoryCell.style.fontWeight = 'bold';
+                    tr.appendChild(categoryCell);
+                    
+                    // Generar celdas para cada subcategoría
+                    subcategoriesToShow.forEach(subcategory => {
+                        const td = document.createElement('td');
+                        const cellKey = (projectFilter !== 'all') 
+                            ? `${projectFilter}|${category}|${subcategory}`
+                            : `${category}|${subcategory}`;
+                        
+                        // Verificar si hay datos para esta combinación
+                        if (cellData[cellKey]) {
+                            const cell = cellData[cellKey];
+                            
+                            // Crear contenedor para el contenido de la celda
+                            const cellContent = document.createElement('div');
+                            cellContent.className = 'cell-content';
+                            cellContent.setAttribute('data-key', cellKey);
+                            
+                            // Determinar qué valor mostrar según el filtro de período
+                            let displayValue = 0;
+                            let seriesData = [];
+                            
+                            if (periodValue === 'all') {
+                                // Mostrar el último valor disponible
+                                displayValue = cell.lastValue || 0;
+                                seriesData = cell.timeSeries || [];
+                            } else {
+                                // Buscar valor para el período específico
+                                const periodData = (cell.timeSeries || []).find(p => p.period === periodValue);
+                                if (periodData) {
+                                    displayValue = periodData.value;
+                                    // Usar solo este período para la visualización
+                                    seriesData = [periodData];
+                                }
+                            }
+                            
+                            // Formatear el valor para mostrar
+                            const formattedValue = formatNumber(displayValue);
+                            
+                            // Determinar clase según si es valor positivo o negativo
+                            const valueClass = displayValue >= 0 ? 'positive' : 'negative';
+                            
+                            // Crear elemento para el valor
+                            const valueElement = document.createElement('div');
+                            valueElement.className = `cell-value ${valueClass}`;
+                            valueElement.textContent = formattedValue;
+                            cellContent.appendChild(valueElement);
+                            
+                            // Añadir mini gráfico si hay series temporales
+                            if (seriesData.length > 0) {
+                                const miniChart = document.createElement('div');
+                                miniChart.className = 'mini-chart';
+                                cellContent.appendChild(miniChart);
+                                
+                                // Crear mini gráfico con D3
+                                createMiniChart(miniChart, seriesData, valueClass);
+                            }
+                            
+                            // Añadir información comparativa si existe
+                            if (cell.comparative && (data.hasPpto || data.hasPrev)) {
+                                const comparative = document.createElement('div');
+                                comparative.className = 'cell-comparative';
+                                
+                                // PRV/PTO
+                                if (data.hasPpto && data.hasPrev && cell.lastPptoValue !== 0) {
+                                    const prvPtoItem = document.createElement('div');
+                                    const percent = cell.comparative.prvPtoPercent || 0;
+                                    prvPtoItem.className = `comp-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    prvPtoItem.innerHTML = `
+                                        <span class="comp-label">PRV/PTO</span>
+                                        <span class="comp-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    comparative.appendChild(prvPtoItem);
+                                }
+                                
+                                // REA/PRV
+                                if (data.hasPrev && cell.lastPrevValue !== 0) {
+                                    const realPrvItem = document.createElement('div');
+                                    const percent = cell.comparative.realPrvPercent || 0;
+                                    realPrvItem.className = `comp-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    realPrvItem.innerHTML = `
+                                        <span class="comp-label">REA/PRV</span>
+                                        <span class="comp-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    comparative.appendChild(realPrvItem);
+                                }
+                                
+                                // Pendiente
+                                if (data.hasPrev) {
+                                    const pendingItem = document.createElement('div');
+                                    const pending = cell.comparative.pending || 0;
+                                    pendingItem.className = `comp-item ${pending <= 0 ? 'positive' : 'negative'}`;
+                                    pendingItem.innerHTML = `
+                                        <span class="comp-label">PDTE</span>
+                                        <span class="comp-value">${formatNumber(pending)}</span>
+                                    `;
+                                    comparative.appendChild(pendingItem);
+                                }
+                                
+                                cellContent.appendChild(comparative);
+                            }
+                            
+                            // Añadir información de períodos
+                            const periodsInfo = document.createElement('div');
+                            periodsInfo.className = 'cell-periods';
+                            periodsInfo.textContent = `${cell.periodsWithData || 0} períodos`;
+                            cellContent.appendChild(periodsInfo);
+                            
+                            // Añadir event listeners para mostrar detalles
+                            cellContent.addEventListener('click', function(e) {
+                                showCellDetails(cellKey);
+                                // Evitar que un clic también active el doble clic
+                                e.stopPropagation();
+                            });
+                            
+                            cellContent.addEventListener('dblclick', function() {
+                                showCellChart(cellKey);
+                            });
+                            
+                            // Añadir tooltip
+                            cellContent.addEventListener('mouseover', function(e) {
+                                const tooltipContent = `
+                                    <strong>${category} - ${subcategory}</strong><br>
+                                    Valor: ${formattedValue}<br>
+                                    Períodos: ${cell.periodsWithData || 0}
+                                `;
+                                window.showTooltip(e, tooltipContent);
+                            });
+                            
+                            cellContent.addEventListener('mouseout', function() {
+                                window.hideTooltip();
+                            });
+                            
+                            // Añadir contenido a la celda
+                            td.appendChild(cellContent);
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+                    
+                    tableBody.appendChild(tr);
+                });
+                
+                // Mostrar mensaje si no hay datos
+                if (tableBody.children.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = subcategoriesToShow.length + 1;
+                    td.textContent = 'No hay datos que mostrar con los filtros seleccionados';
+                    td.style.textAlign = 'center';
+                    td.style.padding = '20px';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                }
+                
+            } catch (e) {
+                console.error('Error al generar matriz:', e);
+                
+                // Mostrar mensaje de error
+                statusIndicator.textContent = `Error: ${e.message}`;
+                statusIndicator.style.display = 'block';
+                
+                // Limpiar tabla
+                while (headerRow.children.length > 1) {
+                    headerRow.removeChild(headerRow.lastChild);
+                }
+                tableBody.innerHTML = '';
+                
+                // Mostrar mensaje de error en la tabla
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 2;
+                td.style.padding = '20px';
+                td.style.color = '#dc2626';
+                td.textContent = `Error al generar la matriz: ${e.message}`;
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+            }
+        }
+    </script>
+</body>
+</html>

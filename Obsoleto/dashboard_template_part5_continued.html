@@ -1,0 +1,116 @@
+const percent = cell.comparative.prvPtoPercent || 0;
+                                    prvPtoItem.className = `comp-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    prvPtoItem.innerHTML = `
+                                        <span class="comp-label">PRV/PTO</span>
+                                        <span class="comp-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    comparative.appendChild(prvPtoItem);
+                                }
+                                
+                                // REA/PRV
+                                if (data.hasPrev && cell.lastPrevValue !== 0) {
+                                    const realPrvItem = document.createElement('div');
+                                    const percent = cell.comparative.realPrvPercent || 0;
+                                    realPrvItem.className = `comp-item ${percent >= 100 ? 'positive' : 'negative'}`;
+                                    realPrvItem.innerHTML = `
+                                        <span class="comp-label">REA/PRV</span>
+                                        <span class="comp-value">${formatNumber(percent, 1)}%</span>
+                                    `;
+                                    comparative.appendChild(realPrvItem);
+                                }
+                                
+                                // Pendiente
+                                if (data.hasPrev) {
+                                    const pendingItem = document.createElement('div');
+                                    const pending = cell.comparative.pending || 0;
+                                    pendingItem.className = `comp-item ${pending <= 0 ? 'positive' : 'negative'}`;
+                                    pendingItem.innerHTML = `
+                                        <span class="comp-label">PDTE</span>
+                                        <span class="comp-value">${formatNumber(pending)}</span>
+                                    `;
+                                    comparative.appendChild(pendingItem);
+                                }
+                                
+                                cellContent.appendChild(comparative);
+                            }
+                            
+                            // Añadir información de períodos
+                            const periodsInfo = document.createElement('div');
+                            periodsInfo.className = 'cell-periods';
+                            periodsInfo.textContent = `${cell.periodsWithData || 0} períodos`;
+                            cellContent.appendChild(periodsInfo);
+                            
+                            // Añadir event listeners para mostrar detalles
+                            cellContent.addEventListener('click', function(e) {
+                                showCellDetails(cellKey);
+                                // Evitar que un clic también active el doble clic
+                                e.stopPropagation();
+                            });
+                            
+                            cellContent.addEventListener('dblclick', function() {
+                                showCellChart(cellKey);
+                            });
+                            
+                            // Añadir tooltip
+                            cellContent.addEventListener('mouseover', function(e) {
+                                const tooltipContent = `
+                                    <strong>${category} - ${subcategory}</strong><br>
+                                    Valor: ${formattedValue}<br>
+                                    Períodos: ${cell.periodsWithData || 0}
+                                `;
+                                window.showTooltip(e, tooltipContent);
+                            });
+                            
+                            cellContent.addEventListener('mouseout', function() {
+                                window.hideTooltip();
+                            });
+                            
+                            // Añadir contenido a la celda
+                            td.appendChild(cellContent);
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+                    
+                    tableBody.appendChild(tr);
+                });
+                
+                // Mostrar mensaje si no hay datos
+                if (tableBody.children.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = subcategoriesToShow.length + 1;
+                    td.textContent = 'No hay datos que mostrar con los filtros seleccionados';
+                    td.style.textAlign = 'center';
+                    td.style.padding = '20px';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                }
+                
+            } catch (e) {
+                console.error('Error al generar matriz:', e);
+                
+                // Mostrar mensaje de error
+                statusIndicator.textContent = `Error: ${e.message}`;
+                statusIndicator.style.display = 'block';
+                
+                // Limpiar tabla
+                while (headerRow.children.length > 1) {
+                    headerRow.removeChild(headerRow.lastChild);
+                }
+                tableBody.innerHTML = '';
+                
+                // Mostrar mensaje de error en la tabla
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 2;
+                td.style.padding = '20px';
+                td.style.color = '#dc2626';
+                td.textContent = `Error al generar la matriz: ${e.message}`;
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+            }
+        }
+    </script>
+</body>
+</html>

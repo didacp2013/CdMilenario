@@ -1,0 +1,150 @@
+<body>
+    <div class="container">
+        <h1>${TITLE}</h1>
+        <div class="header-info">Generado el: ${GENERATED_DATE}</div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="dashboard">Cuadro de Mando</div>
+            <div class="tab" data-tab="info">Información</div>
+        </div>
+        
+        <div id="tabDashboard" class="tab-content active">
+            <div id="statusIndicator" class="status-indicator"></div>
+            
+            <div id="matrixContainer">
+                <div class="controls">
+                    <div class="control-group">
+                        <label class="control-label">Mostrar:</label>
+                        <select id="viewMode">
+                            <option value="top">Top categorías y subcategorías</option>
+                            <option value="all">Todas las categorías y subcategorías</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group" id="rowsControl">
+                        <label class="control-label">Filas (max):</label>
+                        <select id="maxRows">
+                            <option value="5">5 filas</option>
+                            <option value="10" selected>10 filas</option>
+                            <option value="15">15 filas</option>
+                            <option value="20">20 filas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group" id="colsControl">
+                        <label class="control-label">Columnas (max):</label>
+                        <select id="maxCols">
+                            <option value="4">4 columnas</option>
+                            <option value="6">6 columnas</option>
+                            <option value="8" selected>8 columnas</option>
+                            <option value="10">10 columnas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Filtro de período:</label>
+                        <select id="periodFilter">
+                            <option value="all">Todos los períodos</option>
+                            <!-- Options will be added dynamically -->
+                        </select>
+                    </div>
+                    
+                    <button id="btnExport" title="Exportar a CSV">
+                        Exportar CSV
+                    </button>
+                </div>
+                
+                <div id="projectSelectorContainer">
+                    <!-- Project selector will be added here if applicable -->
+                </div>
+                
+                <table id="matrixTable">
+                    <thead>
+                        <tr id="headerRow">
+                            <th>Categoría / Subcategoría</th>
+                            <!-- Headers will be added dynamically -->
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Rows will be added dynamically -->
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                    <div style="display: flex; gap: 20px;">
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 12px; height: 12px; background-color: #3b82f6; margin-right: 5px; border-radius: 2px;"></div>
+                            <span style="font-size: 12px;">Valores positivos: Costes/Gastos</span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 12px; height: 12px; background-color: #ef4444; margin-right: 5px; border-radius: 2px;"></div>
+                            <span style="font-size: 12px;">Valores negativos: Ingresos/Ajustes</span>
+                        </div>
+                    </div>
+                    
+                    <p style="font-size: 12px; color: #64748b; margin: 0;">
+                        Haz clic en cualquier celda para ver el detalle | Doble clic para gráfico completo
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tabInfo" class="tab-content">
+            <h2>Información del Cuadro de Mando</h2>
+            
+            <div class="info-box">
+                <p>Este cuadro de mando visualiza datos extraídos de un archivo Excel.</p>
+                <p><strong>Resumen de datos:</strong></p>
+                <ul>
+                    <li>Categorías: ${CATEGORY_COUNT}</li>
+                    <li>Subcategorías: ${SUBCATEGORY_COUNT}</li>
+                    <li>Períodos: ${PERIOD_COUNT}</li>
+                </ul>
+            </div>
+            
+            <h3>Datos de muestra</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            ${'<th>Proyecto</th>' if $HAS_PROJECTS == 'true' else ''}
+                            <th>Categoría</th>
+                            <th>Subcategoría</th>
+                            <th>Valor</th>
+                            ${
+                                '<th>PRV/PTO</th><th>REA/PRV</th><th>PDTE</th>' 
+                                if $HAS_PPTO == 'true' and $HAS_PREV == 'true' 
+                                else ''
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${SAMPLE_TABLE_ROWS}
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Instrucciones</h3>
+            <ol>
+                <li>Utiliza los controles en la parte superior para filtrar y ajustar la visualización del cuadro de mando.</li>
+                <li>Haz clic en cualquier celda para ver el detalle de los datos.</li>
+                <li>Haz doble clic para ver un gráfico detallado.</li>
+                <li>Utiliza el botón "Exportar CSV" para descargar los datos en formato CSV.</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2 id="modalTitle">Detalle</h2>
+            <div class="detail-chart" id="detailChart">
+                <div class="chart-placeholder">Cargando gráfico...</div>
+            </div>
+            <div id="chartStatus" style="text-align: center; color: #64748b; margin: 10px 0; font-size: 12px;"></div>
+            <div id="detailTable"></div>
+        </div>
+    </div>
+    
+    <!-- Incluir D3.js para visualizaciones -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
