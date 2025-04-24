@@ -19,3 +19,6 @@ __pycache__/
 # Ignorar archivos de sistema
 .DS_Store
 Thumbs.db
+
+# Excluir el directorio Obsoleto del control de versiones
+Obsoleto/

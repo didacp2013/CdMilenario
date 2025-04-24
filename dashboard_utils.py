@@ -20,11 +20,6 @@ def check_and_kill_process_on_port(port, verbose=False):
     Returns:
         bool: True si el puerto fue liberado o estaba disponible, False si no se pudo liberar.
     """
-    import socket
-    import subprocess
-    import os
-    import signal
-
     try:
         # Verificar si el puerto está en uso
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -95,4 +90,4 @@ def reserve_port(port, debug=False):
     except Exception as e:
         if debug:
             print(f"Error al reservar el puerto {port}: {e}")
-        return None
+        return None 

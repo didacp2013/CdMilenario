@@ -10,21 +10,22 @@ def create_historic_view(data):
     """
     Crea la vista de datos históricos con gráficos de línea
     """
-    if not data or 'cellData' not in data:
+    if not data:
         return html.Div("No hay datos históricos disponibles", style={'padding': '20px', 'textAlign': 'center'})
     
     # Depuración: Verificar datos históricos
     print("\n=== VERIFICACIÓN DE DATOS HISTÓRICOS PARA VISUALIZACIÓN ===")
     cells_with_historic = 0
     
-    for cell_key, cell_data in data['cellData'].items():
-        if 'historicData' in cell_data and len(cell_data.get('historicData', [])) > 0:
+    for cell_data in data:
+        if 'CONTENIDO' in cell_data and 'HISTORICOS' in cell_data['CONTENIDO']:
             cells_with_historic += 1
-            print(f"Celda {cell_key} tiene {len(cell_data['historicData'])} registros históricos")
+            historic_data = cell_data['CONTENIDO']['HISTORICOS']
+            print(f"Celda {cell_data.get('ROW')} tiene {len(historic_data)} registros históricos")
             
             # Mostrar el primer registro para verificar la estructura
-            if len(cell_data['historicData']) > 0:
-                first_entry = cell_data['historicData'][0]
+            if len(historic_data) > 0:
+                first_entry = historic_data[0]
                 print(f"  Primer registro: WKS={first_entry.get('WKS')}, PREV={first_entry.get('PREV')}, PPTO={first_entry.get('PPTO')}, REAL={first_entry.get('REAL')}")
     
     print(f"Total de celdas con datos históricos: {cells_with_historic}")
@@ -38,12 +39,13 @@ def create_historic_view(data):
     
     # Filtrar y ordenar las celdas por ROW y COLUMN
     historic_cells = []
-    for cell_key, cell_data in data['cellData'].items():
+    for cell_data in data:
         # Solo incluir celdas con datos históricos
-        if 'historicData' in cell_data and len(cell_data.get('historicData', [])) > 0:
+        if 'CONTENIDO' in cell_data and 'HISTORICOS' in cell_data['CONTENIDO']:
+            historic_data = cell_data['CONTENIDO']['HISTORICOS']
             # Verificar que hay al menos un registro con datos no nulos
             has_valid_data = False
-            for entry in cell_data.get('historicData', []):
+            for entry in historic_data:
                 prev = entry.get('PREV', 0)
                 ppto = entry.get('PPTO', 0)
                 real = entry.get('REAL', 0)
@@ -69,9 +71,9 @@ def create_historic_view(data):
             
             if has_valid_data:
                 historic_cells.append(cell_data)
-                print(f"Celda {cell_key} añadida a historic_cells con datos válidos")
+                print(f"Celda {cell_data.get('ROW')} añadida a historic_cells con datos válidos")
             else:
-                print(f"Celda {cell_key} tiene datos históricos pero todos son cero o nulos")
+                print(f"Celda {cell_data.get('ROW')} tiene datos históricos pero todos son cero o nulos")
     
     # Ordenar por ROW y COLUMN
     historic_cells.sort(key=lambda x: (x.get('ROW', ''), x.get('COLUMN', '')))
@@ -83,7 +85,7 @@ def create_historic_view(data):
         prjid = cell_data.get('PRJID', 'N/A')
         
         # Obtener datos históricos
-        historic_data = cell_data.get('historicData', [])
+        historic_data = cell_data['CONTENIDO']['HISTORICOS']
         
         # Crear gráfico de línea para datos históricos
         fig = go.Figure()
@@ -242,7 +244,8 @@ def create_historic_view(data):
                     'borderRadius': '5px 5px 0 0',
                     'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'
                 }),
-                                # Cuerpo de la tarjeta con el gráfico y los valores actuales
+                
+                # Cuerpo de la tarjeta con el gráfico y los valores actuales
                 html.Div([
                     # Gráfico de línea
                     dcc.Graph(
@@ -250,63 +253,46 @@ def create_historic_view(data):
                         config={'displayModeBar': False}
                     ),
                     
-                    # Valores actuales en formato de tabla
+                    # Valores actuales
                     html.Div([
-                        html.Table([
-                            # Encabezados
-                            html.Thead(
-                                html.Tr([
-                                    html.Th("", style={'width': '25%'}),
-                                    html.Th("PREV", style={'width': '25%', 'color': prev_color, 'textAlign': 'right'}),
-                                    html.Th("PPTO", style={'width': '25%', 'color': ppto_color, 'textAlign': 'right'}),
-                                    html.Th("REAL", style={'width': '25%', 'color': real_color, 'textAlign': 'right'})
-                                ])
-                            ),
-                            # Cuerpo
-                            html.Tbody([
-                                html.Tr([
-                                    html.Td("Último valor:", style={'fontWeight': 'bold'}),
-                                    html.Td(prev_formatted, style={'textAlign': 'right', 'color': prev_color}),
-                                    html.Td(ppto_formatted, style={'textAlign': 'right', 'color': ppto_color}),
-                                    html.Td(real_formatted, style={'textAlign': 'right', 'color': real_color})
-                                ])
-                            ])
-                        ], style={
-                            'width': '100%',
-                            'borderCollapse': 'collapse',
-                            'marginTop': '10px',
-                            'fontSize': '0.9em'
-                        })
-                    ])
-                ], style={'padding': '15px'})
+                        html.Div([
+                            html.Span("PREV: ", style={'fontWeight': 'bold', 'color': prev_color}),
+                            html.Span(prev_formatted, style={'color': prev_color})
+                        ], style={'marginBottom': '10px'}),
+                        
+                        html.Div([
+                            html.Span("PPTO: ", style={'fontWeight': 'bold', 'color': ppto_color}),
+                            html.Span(ppto_formatted, style={'color': ppto_color})
+                        ], style={'marginBottom': '10px'}),
+                        
+                        html.Div([
+                            html.Span("REAL: ", style={'fontWeight': 'bold', 'color': real_color}),
+                            html.Span(real_formatted, style={'color': real_color})
+                        ])
+                    ], style={'padding': '15px'})
+                ])
             ], style={
                 'margin': '12px',
                 'border': '1px solid #dee2e6',
                 'borderRadius': '6px',
                 'backgroundColor': '#ffffff',
                 'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-                'width': '500px',
+                'width': '350px',
                 'display': 'inline-block',
-                'verticalAlign': 'top',
-                'transition': 'transform 0.3s ease, box-shadow 0.3s ease',
-                ':hover': {
-                    'transform': 'translateY(-5px)',
-                    'boxShadow': '0 8px 16px rgba(0,0,0,0.15)'
-                }
+                'verticalAlign': 'top'
             })
             
             historic_cards.append(card)
+    
+    if not historic_cards:
+        return html.Div("No se encontraron datos históricos para mostrar", style={'padding': '20px', 'textAlign': 'center'})
     
     return html.Div([
         html.H3("Vista Histórica", style={
             'textAlign': 'center', 
             'marginBottom': '25px',
             'color': '#2c3e50',
-            'fontWeight': '600',
-            'borderBottom': '2px solid #4a6fa5',
-            'paddingBottom': '10px',
-            'maxWidth': '300px',
-            'margin': '0 auto 30px auto'
+            'fontWeight': '600'
         }),
         html.Div(historic_cards, style={
             'display': 'flex',

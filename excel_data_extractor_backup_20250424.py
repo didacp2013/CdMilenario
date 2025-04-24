@@ -85,74 +85,24 @@ def structure_data(historic_data, kpi_data):
 def main():
     """
     Extrae y procesa los datos desde el Excel hardcodeado.
-    Devuelve una lista de dicts, cada uno con la estructura:
-    {
-        'CIA': str,
-        'PRJID': str,
-        'ROW': str,
-        'COLUMN': str,
-        'KPI': { ... } (si existe),
-        'HISTORICO': [ ... ] (si existe)
-    }
     """
     if not os.path.exists(EXCEL_PATH):
         print(f"Error: No se encuentra el archivo Excel en la ruta: {EXCEL_PATH}")
-        return []
+        return None
 
-    historic_data = extract_historic_data(EXCEL_PATH, HISTORIC_SHEET)
-    kpi_data = extract_kpi_data(EXCEL_PATH, KPI_SHEET)
+    try:
+        # Extraer datos
+        historic_data = extract_historic_data(EXCEL_PATH, HISTORIC_SHEET)
+        kpi_data = extract_kpi_data(EXCEL_PATH, KPI_SHEET)
 
-    # Indexar los KPI por la clave jerárquica
-    kpi_index = {}
-    for record in kpi_data:
-        key = (
-            str(record.get("CIA", "")),
-            str(record.get("PRJID", "")),
-            str(record.get("ROW", "")),
-            str(record.get("COLUMN", ""))
-        )
-        kpi_index[key] = {
-            "KPREV": record.get("KPREV"),
-            "PDTE": record.get("PDTE"),
-            "REALPREV": record.get("REALPREV"),
-            "PPTOPREV": record.get("PPTOPREV")
-        }
+        # Estructurar los datos
+        data = structure_data(historic_data, kpi_data)
 
-    # Agrupar históricos por la clave jerárquica
-    historic_index = {}
-    for record in historic_data:
-        key = (
-            str(record.get("CIA", "")),
-            str(record.get("PRJID", "")),
-            str(record.get("ROW", "")),
-            str(record.get("COLUMN", ""))
-        )
-        if key not in historic_index:
-            historic_index[key] = []
-        historic_index[key].append({
-            "WKS": record.get("WKS"),
-            "PPTO": record.get("PPTO"),
-            "REAL": record.get("REAL"),
-            "HPREV": record.get("HPREV")
-        })
+        return data
 
-    # Unir ambas fuentes en una lista plana
-    all_keys = set(list(kpi_index.keys()) + list(historic_index.keys()))
-    result = []
-    for key in all_keys:
-        cia, prjid, row, column = key
-        entry = {
-            "CIA": cia,
-            "PRJID": prjid,
-            "ROW": row,
-            "COLUMN": column
-        }
-        if key in kpi_index:
-            entry["KPI"] = kpi_index[key]
-        if key in historic_index:
-            entry["HISTORICO"] = historic_index[key]
-        result.append(entry)
-    return result
+    except Exception as e:
+        print(f"Error al procesar los datos: {e}")
+        return None
 
 if __name__ == "__main__":
     main()
