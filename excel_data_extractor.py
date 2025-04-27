@@ -6,18 +6,48 @@ Extractor de datos desde Excel para el dashboard
 import os
 import sys
 import pandas as pd
+import datetime
 
 # Valores hardcodeados del Excel y sus hojas
 EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/Tchart_V06.xlsm"
 HISTORIC_SHEET = "FrmBB_2"
 KPI_SHEET = "FrmBB_3"
 
+def wks_to_date(wks):
+    """
+    Convierte un valor WKS (YYYY.WW) en una fecha real (domingo de la semana ISO).
+    Devuelve también el número de serie Excel (días desde 1899-12-30).
+    """
+    import datetime
+    try:
+        wks_str = str(wks).replace(',', '').replace(' ', '').strip()
+        if '.' in wks_str:
+            year, week = wks_str.split('.', 1)
+            year = int(year)
+            week = int(week)
+            date = datetime.date.fromisocalendar(year, week, 7)  # 7 = domingo
+        elif wks_str.isdigit() and len(wks_str) == 4:
+            year = int(wks_str)
+            date = datetime.date.fromisocalendar(year, 1, 7)
+        else:
+            return None, None
+        # Número de serie Excel: días desde 1899-12-30
+        excel_base = datetime.date(1899, 12, 30)
+        excel_serial = (date - excel_base).days
+        return date, excel_serial
+    except Exception:
+        return None, None
+
 def extract_historic_data(excel_path, sheet_name):
     """
     Extrae datos históricos desde una hoja de Excel.
     """
     try:
-        df = pd.read_excel(excel_path, sheet_name=sheet_name)
+        df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={'WKS': str})
+        # Añadir columna WKS_DATE y WKS_SERIAL
+        wks_dates_and_serials = df['WKS'].apply(wks_to_date)
+        df['WKS_DATE'] = wks_dates_and_serials.apply(lambda x: x[0])
+        df['WKS_SERIAL'] = wks_dates_and_serials.apply(lambda x: x[1])
         return df.to_dict(orient="records")
     except Exception as e:
         print(f"Error al extraer datos históricos: {e}")
@@ -131,6 +161,8 @@ def main():
             historic_index[key] = []
         historic_index[key].append({
             "WKS": record.get("WKS"),
+            "WKS_DATE": record.get("WKS_DATE"),
+            "WKS_SERIAL": record.get("WKS_SERIAL"),
             "PPTO": record.get("PPTO"),
             "REAL": record.get("REAL"),
             "HPREV": record.get("HPREV")

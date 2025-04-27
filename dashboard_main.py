@@ -140,14 +140,15 @@ def toggle_view(n_clicks):
         return {'backgroundColor': 'red', 'color': 'white', 'width': '150px', 'height': '40px'}
 
 def create_dashboard_card(row):
-    """
-    Crea una tarjeta visual única para una celda/contenedor, mostrando el título y el contenido según DATATYPE.
-    """
-    title = f"{row.get('ROW', '')} - {row.get('COLUMN', '')}"
+    print(f"[DEBUG] Creando tarjeta para ROW={row.get('ROW')} COLUMN={row.get('COLUMN')} DATATYPE={row.get('DATATYPE')}")
+    def clean_label(label):
+        # Elimina el número y los dos puntos iniciales, dejando solo el texto descriptivo
+        if label and ":" in label:
+            return label.split(":", 1)[1].strip()
+        return label or ""
+    title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
     header = html.Div([
-        html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600'}),
-        html.H6(f"CIA: {row.get('CIA', '')} | PRJID: {row.get('PRJID', '')}", style={
-            'margin': '5px 0', 'fontWeight': 'normal', 'color': '#f8f9fa'})
+        html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600'})
     ], style={
         'borderBottom': '1px solid #dee2e6',
         'padding': '12px 15px',
@@ -175,16 +176,43 @@ def create_dashboard_card(row):
             ])
         ], style={'padding': '15px'})
     elif row.get('DATATYPE') == 'H':
+        print(f"[DEBUG HISTÓRICO] Entrando en rama histórica para ROW={row.get('ROW')} COLUMN={row.get('COLUMN')}")
         historico = row.get('DATACONTENTS', [])
-        weeks = [str(h.get("WKS", "")) for h in historico]
-        ppto = [h.get("PPTO", 0) for h in historico]
-        real = [h.get("REAL", 0) for h in historico]
-        hprev = [h.get("HPREV", 0) for h in historico]
+        def format_wks_label(wks):
+            try:
+                wks_str = str(wks).replace(',', '').replace(' ', '').strip()
+                if '.' in wks_str:
+                    year, week = wks_str.split('.', 1)
+                    year = int(year)
+                    week = int(week)
+                    return f"{year:04d}.{week:02d}"
+                elif wks_str.isdigit() and len(wks_str) == 4:
+                    return f"{int(wks_str):04d}.00"
+                else:
+                    return wks_str
+            except Exception:
+                return str(wks)
+        # Usar WKS_SERIAL como eje X, ordenando por él
+        data_tuples = [
+            (h.get("WKS_SERIAL"), format_wks_label(h.get("WKS", "")), h.get("HPREV", 0), h.get("PPTO", 0), h.get("REAL", 0))
+            for h in historico if h.get("WKS_SERIAL") is not None
+        ]
+        data_tuples.sort(key=lambda x: x[0])
+        if data_tuples:
+            serials, week_labels, hprev, ppto, real = zip(*data_tuples)
+            print("[DEBUG HISTÓRICO] WKS_SERIAL eje X:", serials)
+            print("[DEBUG HISTÓRICO] Etiquetas semana:", week_labels)
+            print("[DEBUG HISTÓRICO] HPREV:", hprev)
+            print("[DEBUG HISTÓRICO] PPTO:", ppto)
+            print("[DEBUG HISTÓRICO] REAL:", real)
+        else:
+            print("[DEBUG HISTÓRICO] No hay data_tuples para esta tarjeta histórica.")
+            serials, week_labels, hprev, ppto, real = [], [], [], [], []
         fig = {
             'data': [
-                {'x': weeks, 'y': hprev, 'type': 'scatter', 'name': 'HPREV', 'line': {'color': '#4a6fa5', 'width': 2}},
-                {'x': weeks, 'y': ppto, 'type': 'scatter', 'name': 'PPTO', 'line': {'color': '#28a745', 'width': 2}},
-                {'x': weeks, 'y': real, 'type': 'scatter', 'name': 'REAL', 'line': {'color': '#dc3545', 'width': 2}}
+                {'x': serials, 'y': hprev, 'type': 'scatter', 'name': 'HPREV', 'line': {'color': '#4a6fa5', 'width': 2}, 'text': week_labels, 'hovertemplate': '%{text}<br>HPREV: %{y}'},
+                {'x': serials, 'y': ppto, 'type': 'scatter', 'name': 'PPTO', 'line': {'color': '#28a745', 'width': 2}, 'text': week_labels, 'hovertemplate': '%{text}<br>PPTO: %{y}'},
+                {'x': serials, 'y': real, 'type': 'scatter', 'name': 'REAL', 'line': {'color': '#dc3545', 'width': 2}, 'text': week_labels, 'hovertemplate': '%{text}<br>REAL: %{y}'}
             ],
             'layout': {
                 'margin': {'l': 40, 'r': 20, 't': 20, 'b': 40},
@@ -193,7 +221,12 @@ def create_dashboard_card(row):
                 'legend': {'orientation': 'h', 'y': 1.1},
                 'plot_bgcolor': 'white',
                 'paper_bgcolor': 'white',
-                'xaxis': {'gridcolor': '#eee'},
+                'xaxis': {
+                    'gridcolor': '#eee',
+                    'tickangle': -90,
+                    'tickmode': 'auto',
+                    'title': 'Fecha (número de serie Excel)',
+                },
                 'yaxis': {'gridcolor': '#eee', 'title': 'Valores (€)'}
             }
         }
@@ -405,7 +438,7 @@ def init_callbacks(app):
             return create_historic_view(data), ""
 
     @app.callback(
-        Output('close-trigger', 'data'),
+        Output('close-trigger', 'children'),
         Input('btn-close', 'n_clicks'),
         prevent_initial_call=True
     )
