@@ -91,8 +91,8 @@ def main():
         'PRJID': str,
         'ROW': str,
         'COLUMN': str,
-        'KPI': { ... } (si existe),
-        'HISTORICO': [ ... ] (si existe)
+        'DATATYPE': 'K' o 'H',
+        'DATACONTENTS': dict (KPI) o lista de dicts (HISTÓRICO)
     }
     """
     if not os.path.exists(EXCEL_PATH):
@@ -136,22 +136,31 @@ def main():
             "HPREV": record.get("HPREV")
         })
 
-    # Unir ambas fuentes en una lista plana
-    all_keys = set(list(kpi_index.keys()) + list(historic_index.keys()))
+    # Unir ambas fuentes en una lista plana, una entrada por tipo de dato
     result = []
+    all_keys = set(list(kpi_index.keys()) + list(historic_index.keys()))
     for key in all_keys:
         cia, prjid, row, column = key
-        entry = {
-            "CIA": cia,
-            "PRJID": prjid,
-            "ROW": row,
-            "COLUMN": column
-        }
+        # KPI
         if key in kpi_index:
-            entry["KPI"] = kpi_index[key]
+            result.append({
+                "CIA": cia,
+                "PRJID": prjid,
+                "ROW": row,
+                "COLUMN": column,
+                "DATATYPE": "K",
+                "DATACONTENTS": kpi_index[key]
+            })
+        # HISTÓRICO
         if key in historic_index:
-            entry["HISTORICO"] = historic_index[key]
-        result.append(entry)
+            result.append({
+                "CIA": cia,
+                "PRJID": prjid,
+                "ROW": row,
+                "COLUMN": column,
+                "DATATYPE": "H",
+                "DATACONTENTS": historic_index[key]
+            })
     return result
 
 if __name__ == "__main__":

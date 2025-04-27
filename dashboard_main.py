@@ -19,7 +19,7 @@ import dash
 import dash_bootstrap_components as dbc
 import random
 import pandas as pd
-from excel_dash_utils import check_and_kill_process_on_port, reserve_port
+from dash_utils import check_and_kill_process_on_port, reserve_port
 
 # Importar módulos propios
 try:
@@ -82,7 +82,7 @@ def wait_for_server(port, timeout=30):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock = socket.socket(socket.AF_INET, socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(('127.0.0.1', port))
             sock.close()
             # Esperar un poco más para asegurar que el servidor Dash está completamente iniciado
@@ -93,68 +93,32 @@ def wait_for_server(port, timeout=30):
     return False
 
 def load_dashboard_data():
-    # Use the main function from excel_data_extractor to extract data
-    extracted_data = extract_excel_data()
-
-    # Filter and structure the data as per the test_excel_data_extractor.py
-    filtered_data = [
-        {
-            "CIA": row["CIA"],
-            "PRJID": row["PRJID"],
-            "ROW": row["ROW"],
-            "COLUMN": row["COLUMN"]
-        }
-        for row in extracted_data
-        if "CIA" in row and "PRJID" in row and "ROW" in row and "COLUMN" in row
-    ]
-
-    return filtered_data
+    """
+    Carga los datos extraídos como lista de dicts con DATATYPE y DATACONTENTS
+    """
+    return extract_excel_data()
 
 def create_layout():
     data = load_dashboard_data()
-
-    # Extract unique values for filters
-    cia_values = list(set(row["CIA"] for row in data))
-    prjid_values = list(set(row["PRJID"] for row in data))
-
+    cia_values = sorted(list(set(row["CIA"] for row in data)))
+    prjid_values = sorted(list(set(row["PRJID"] for row in data)))
     return html.Div([
-        # Encabezado
         html.Div([
             html.H1("Dashboard de Seguimiento", style={
-                'color': '#2c3e50',
-                'textAlign': 'center',
-                'marginBottom': '10px',
-                'fontWeight': '700'
-            }),
+                'color': '#2c3e50', 'textAlign': 'center', 'marginBottom': '10px', 'fontWeight': '700'}),
             html.H4("Visualización de KPIs e Históricos", style={
-                'color': '#4a6fa5',
-                'textAlign': 'center',
-                'marginBottom': '20px',
-                'fontWeight': '400'
-            })
-        ], style={
-            'padding': '20px 0',
-            'borderBottom': '2px solid #4a6fa5',
-            'marginBottom': '30px',
-            'background': 'linear-gradient(to right, #f8f9fa, #e9ecef, #f8f9fa)'
-        }),
-        # Filtros
+                'color': '#4a6fa5', 'textAlign': 'center', 'marginBottom': '20px', 'fontWeight': '400'})
+        ], style={'padding': '20px 0', 'borderBottom': '2px solid #4a6fa5', 'marginBottom': '30px', 'background': 'linear-gradient(to right, #f8f9fa, #e9ecef, #f8f9fa)'}),
         html.Div([
-            dcc.Dropdown(
-                id='cia-filter',
-                options=[{'label': cia, 'value': cia} for cia in cia_values],
-                placeholder='Selecciona una CIA'
-            ),
-            dcc.Dropdown(
-                id='prjid-filter',
-                options=[{'label': prjid, 'value': prjid} for prjid in prjid_values],
-                placeholder='Selecciona un PRJID'
-            )
-        ], style={
-            'display': 'flex',
-            'justifyContent': 'space-around',
-            'marginBottom': '20px'
-        })
+            dcc.Dropdown(id='cia-filter', options=[{'label': cia, 'value': cia} for cia in cia_values], placeholder='Selecciona una CIA', style={'width': '220px'}),
+            dcc.Dropdown(id='prjid-filter', options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], placeholder='Selecciona un PRJID', style={'width': '220px'}),
+            html.Button("Actualizar datos", id="apply-filters", n_clicks=0, style={"marginLeft": "20px", "marginRight": "20px", "height": "40px"}),
+            html.Button("Cerrar Dashboard", id="btn-close", n_clicks=0, style={"backgroundColor": "#dc3545", "color": "white", "height": "40px"}),
+            html.Button("Alternar KPI/HISTÓRICO", id="toggle-view-btn", n_clicks=0, style={"marginLeft": "20px", "height": "40px"})
+        ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'marginBottom': '20px', 'gap': '10px'}),
+        html.Div(id='dashboard-content'),
+        html.Div(id='user-message', style={'color': 'red', 'textAlign': 'center', 'marginTop': '10px'}),
+        html.Div(id='close-trigger', style={'display': 'none'})
     ])
 
 # Initialize the Dash app
@@ -175,201 +139,98 @@ def toggle_view(n_clicks):
     else:
         return {'backgroundColor': 'red', 'color': 'white', 'width': '150px', 'height': '40px'}
 
-def create_kpi_view(data):
+def create_dashboard_card(row):
     """
-    Crea la vista de KPIs con tarjetas individuales para cada combinación ROW/COLUMN
+    Crea una tarjeta visual única para una celda/contenedor, mostrando el título y el contenido según DATATYPE.
     """
-    if not data or 'kpi_data' not in data or not data['kpi_data']:
-        return html.Div("No hay datos KPI disponibles", style={'text-align': 'center', 'margin-top': '20px'})
-    
-    # Agrupar datos por ROW y COLUMN
-    grouped_data = {}
-    for item in data['kpi_data']:
-        key = (item.get('ROW', ''), item.get('COLUMN', ''))
-        if key not in grouped_data:
-            grouped_data[key] = {
-                'CIA': item.get('CIA', ''),
-                'PRJID': item.get('PRJID', ''),
-                'CONTENIDO': item.get('CONTENIDO', {})
+    title = f"{row.get('ROW', '')} - {row.get('COLUMN', '')}"
+    header = html.Div([
+        html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600'}),
+        html.H6(f"CIA: {row.get('CIA', '')} | PRJID: {row.get('PRJID', '')}", style={
+            'margin': '5px 0', 'fontWeight': 'normal', 'color': '#f8f9fa'})
+    ], style={
+        'borderBottom': '1px solid #dee2e6',
+        'padding': '12px 15px',
+        'borderRadius': '5px 5px 0 0',
+        'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'
+    })
+    if row.get('DATATYPE') == 'K':
+        kpi = row.get('DATACONTENTS', {})
+        body = html.Div([
+            html.Div([
+                html.Span("K.Prev: ", style={'fontWeight': 'bold'}),
+                html.Span(f"{kpi.get('KPREV', 0):,.2f} €".replace(",", "."), style={'color': '#28a745' if kpi.get('KPREV', 0) >= 0 else '#dc3545'})
+            ], style={'marginBottom': '10px'}),
+            html.Div([
+                html.Span("PDTE: ", style={'fontWeight': 'bold'}),
+                html.Span(f"{kpi.get('PDTE', 0):,.2f} €".replace(",", "."), style={'color': '#28a745' if kpi.get('PDTE', 0) >= 0 else '#dc3545'})
+            ], style={'marginBottom': '10px'}),
+            html.Div([
+                html.Span("REALPREV: ", style={'fontWeight': 'bold'}),
+                html.Span(f"{kpi.get('REALPREV', 0):,.2%}", style={'color': '#28a745' if kpi.get('REALPREV', 0) >= 0 else '#dc3545'})
+            ], style={'marginBottom': '10px'}),
+            html.Div([
+                html.Span("PPTOPREV: ", style={'fontWeight': 'bold'}),
+                html.Span(f"{kpi.get('PPTOPREV', 0):,.2%}", style={'color': '#28a745' if kpi.get('PPTOPREV', 0) >= 0 else '#dc3545'})
+            ])
+        ], style={'padding': '15px'})
+    elif row.get('DATATYPE') == 'H':
+        historico = row.get('DATACONTENTS', [])
+        weeks = [str(h.get("WKS", "")) for h in historico]
+        ppto = [h.get("PPTO", 0) for h in historico]
+        real = [h.get("REAL", 0) for h in historico]
+        hprev = [h.get("HPREV", 0) for h in historico]
+        fig = {
+            'data': [
+                {'x': weeks, 'y': hprev, 'type': 'scatter', 'name': 'HPREV', 'line': {'color': '#4a6fa5', 'width': 2}},
+                {'x': weeks, 'y': ppto, 'type': 'scatter', 'name': 'PPTO', 'line': {'color': '#28a745', 'width': 2}},
+                {'x': weeks, 'y': real, 'type': 'scatter', 'name': 'REAL', 'line': {'color': '#dc3545', 'width': 2}}
+            ],
+            'layout': {
+                'margin': {'l': 40, 'r': 20, 't': 20, 'b': 40},
+                'height': 300,
+                'showlegend': True,
+                'legend': {'orientation': 'h', 'y': 1.1},
+                'plot_bgcolor': 'white',
+                'paper_bgcolor': 'white',
+                'xaxis': {'gridcolor': '#eee'},
+                'yaxis': {'gridcolor': '#eee', 'title': 'Valores (€)'}
             }
-    
-    # Crear tarjetas para cada grupo
-    kpi_cards = []
-    for (row, column), group_data in grouped_data.items():
-        if 'CONTENIDO' in group_data and 'KPIS' in group_data['CONTENIDO']:
-            kpis = group_data['CONTENIDO']['KPIS']
-            
-            card = html.Div([
-                # Encabezado de la tarjeta
-                html.Div([
-                    html.H5(f"{row} - {column}", style={
-                        'margin': '0',
-                        'color': '#fff',
-                        'fontWeight': '600'
-                    })
-                ], style={
-                    'padding': '12px 15px',
-                    'borderRadius': '5px 5px 0 0',
-                    'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'
-                }),
-                
-                # Cuerpo de la tarjeta con los valores KPI
-                html.Div([
-                    # KPREV
-                    html.Div([
-                        html.Span("K.Prev: ", style={'fontWeight': 'bold'}),
-                        html.Span(f"{kpis.get('KPREV', 0):,.2f} €".replace(",", "."), 
-                                style={'color': '#28a745' if kpis.get('KPREV', 0) >= 0 else '#dc3545'})
-                    ], style={'marginBottom': '10px'}),
-                    
-                    # PDTE
-                    html.Div([
-                        html.Span("PDTE: ", style={'fontWeight': 'bold'}),
-                        html.Span(f"{kpis.get('PDTE', 0):,.2f} €".replace(",", "."), 
-                                style={'color': '#28a745' if kpis.get('PDTE', 0) >= 0 else '#dc3545'})
-                    ], style={'marginBottom': '10px'}),
-                    
-                    # REALPREV
-                    html.Div([
-                        html.Span("REALPREV: ", style={'fontWeight': 'bold'}),
-                        html.Span(f"{kpis.get('REALPREV', 0):,.2%}", 
-                                style={'color': '#28a745' if kpis.get('REALPREV', 0) >= 0 else '#dc3545'})
-                    ], style={'marginBottom': '10px'}),
-                    
-                    # PPTOPREV
-                    html.Div([
-                        html.Span("PPTOPREV: ", style={'fontWeight': 'bold'}),
-                        html.Span(f"{kpis.get('PPTOPREV', 0):,.2%}", 
-                                style={'color': '#28a745' if kpis.get('PPTOPREV', 0) >= 0 else '#dc3545'})
-                    ])
-                ], style={'padding': '15px'})
-            ], style={
-                'margin': '12px',
-                'border': '1px solid #dee2e6',
-                'borderRadius': '6px',
-                'backgroundColor': '#ffffff',
-                'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-                'width': '300px',
-                'display': 'inline-block',
-                'verticalAlign': 'top'
-            })
-            
-            kpi_cards.append(card)
-    
+        }
+        body = html.Div([
+            dcc.Graph(figure=fig, config={'displayModeBar': False})
+        ], style={'padding': '15px'})
+    else:
+        return None
     return html.Div([
-        html.Div(kpi_cards, style={
-            'display': 'flex',
-            'flexWrap': 'wrap',
-            'justifyContent': 'center',
-            'gap': '20px',
-            'padding': '20px'
-        })
-    ])
+        header,
+        body
+    ], style={
+        'margin': '12px',
+        'border': '1px solid #dee2e6',
+        'borderRadius': '6px',
+        'backgroundColor': '#ffffff',
+        'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
+        'width': '350px' if row.get('DATATYPE') == 'K' else '500px',
+        'display': 'inline-block',
+        'verticalAlign': 'top'
+    })
+
+def create_kpi_view(data):
+    kpi_data = [row for row in data if row.get("DATATYPE") == "K"]
+    cards = [create_dashboard_card(row) for row in kpi_data if row.get("DATACONTENTS")]
+    cards = [card for card in cards if card is not None]
+    if not cards:
+        return html.Div("No hay datos KPI disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    return html.Div(cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
 
 def create_historic_view(data):
-    """
-    Crea la vista histórica con gráficos para cada combinación ROW/COLUMN
-    """
-    if not data or 'historic_data' not in data or not data['historic_data']:
+    historic_data = [row for row in data if row.get("DATATYPE") == "H"]
+    cards = [create_dashboard_card(row) for row in historic_data if row.get("DATACONTENTS")]
+    cards = [card for card in cards if card is not None]
+    if not cards:
         return html.Div("No hay datos históricos disponibles", style={'text-align': 'center', 'margin-top': '20px'})
-    
-    # Agrupar datos por ROW y COLUMN
-    grouped_data = {}
-    for item in data['historic_data']:
-        key = (item.get('ROW', ''), item.get('COLUMN', ''))
-        if key not in grouped_data:
-            grouped_data[key] = {
-                'CIA': item.get('CIA', ''),
-                'PRJID': item.get('PRJID', ''),
-                'series': []
-            }
-        grouped_data[key]['series'].append(item)
-    
-    # Crear tarjetas para cada grupo
-    historic_cards = []
-    for (row, column), group_data in grouped_data.items():
-        series_data = group_data['series']
-        
-        # Preparar datos para el gráfico
-        dates = []
-        prev_values = []
-        ppto_values = []
-        real_values = []
-        
-        for item in sorted(series_data, key=lambda x: x.get('TIMESTAMP', '')):
-            if 'CONTENIDO' in item and 'HISTORICOS' in item['CONTENIDO']:
-                hist = item['CONTENIDO']['HISTORICOS']
-                dates.append(item.get('TIMESTAMP', ''))
-                prev_values.append(float(hist.get('PREV', 0)))
-                ppto_values.append(float(hist.get('PPTO', 0)))
-                real_values.append(float(hist.get('REAL', 0)))
-        
-        if dates:  # Solo crear tarjeta si hay datos
-            # Crear gráfico
-            fig = {
-                'data': [
-                    {'x': dates, 'y': prev_values, 'type': 'scatter', 'name': 'PREV',
-                     'line': {'color': '#4a6fa5', 'width': 2}},
-                    {'x': dates, 'y': ppto_values, 'type': 'scatter', 'name': 'PPTO',
-                     'line': {'color': '#28a745', 'width': 2}},
-                    {'x': dates, 'y': real_values, 'type': 'scatter', 'name': 'REAL',
-                     'line': {'color': '#dc3545', 'width': 2}}
-                ],
-                'layout': {
-                    'margin': {'l': 40, 'r': 20, 't': 20, 'b': 40},
-                    'height': 300,
-                    'showlegend': True,
-                    'legend': {'orientation': 'h', 'y': 1.1},
-                    'plot_bgcolor': 'white',
-                    'paper_bgcolor': 'white',
-                    'xaxis': {'gridcolor': '#eee'},
-                    'yaxis': {'gridcolor': '#eee', 'title': 'Valores (€)'}
-                }
-            }
-            
-            card = html.Div([
-                # Encabezado
-                html.Div([
-                    html.H5(f"{row} - {column}", style={
-                        'margin': '0',
-                        'color': '#fff',
-                        'fontWeight': '600'
-                    })
-                ], style={
-                    'padding': '12px 15px',
-                    'borderRadius': '5px 5px 0 0',
-                    'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'
-                }),
-                
-                # Gráfico
-                html.Div([
-                    dcc.Graph(
-                        figure=fig,
-                        config={'displayModeBar': False}
-                    )
-                ], style={'padding': '15px'})
-            ], style={
-                'margin': '12px',
-                'border': '1px solid #dee2e6',
-                'borderRadius': '6px',
-                'backgroundColor': '#ffffff',
-                'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-                'width': '500px',
-                'display': 'inline-block',
-                'verticalAlign': 'top'
-            })
-            
-            historic_cards.append(card)
-    
-    return html.Div([
-        html.Div(historic_cards, style={
-            'display': 'flex',
-            'flexWrap': 'wrap',
-            'justifyContent': 'center',
-            'gap': '20px',
-            'padding': '20px'
-        })
-    ])
+    return html.Div(cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
 
 def create_kpi_table(kpi_data):
     """
@@ -515,53 +376,34 @@ def create_historic_table(historic_data):
 
 def init_callbacks(app):
     """
-    Initialize the two main callbacks for the dashboard
+    Inicializa los callbacks principales del dashboard
     """
     print("Initializing callbacks...")
 
-    # Callback 1: Apply Filters
     @app.callback(
-        [Output('filtered-data', 'data'),
-         Output('view-container', 'children'),
-         Output('initial-message', 'style'),
-         Output('view-selector', 'style')],
+        [Output('dashboard-content', 'children'),
+         Output('user-message', 'children')],
         [Input('apply-filters', 'n_clicks')],
         [State('cia-filter', 'value'),
          State('prjid-filter', 'value'),
-         State('filtered-data', 'data'),
-         State('view-state', 'data')]
+         State('toggle-view-btn', 'n_clicks')]
     )
-    def apply_filters(n_clicks, cia, prjid, current_data, view_state):
-        if not n_clicks or not cia or not prjid:
-            return current_data, None, {'display': 'block'}, {'display': 'block'}
+    def update_dashboard_content(apply_n_clicks, cia, prjid, toggle_n_clicks):
+        data = load_dashboard_data()
+        # Filtrar por CIA y PRJID si están seleccionados
+        if cia:
+            data = [row for row in data if str(row.get('CIA', '')) == str(cia)]
+        if prjid:
+            data = [row for row in data if str(row.get('PRJID', '')) == str(prjid)]
+        # Si no hay datos para la combinación, informar al usuario
+        if not data:
+            return None, "No hay datos para la combinación seleccionada. Cambie su selección."
+        # Determinar vista: par = KPI, impar = HISTÓRICO
+        if toggle_n_clicks is None or toggle_n_clicks % 2 == 0:
+            return create_kpi_view(data), ""
+        else:
+            return create_historic_view(data), ""
 
-        filtered_data = {'kpi_data': [], 'historic_data': []}
-
-        # Filter KPI data
-        if 'kpi_data' in current_data and current_data['kpi_data']:
-            filtered_data['kpi_data'] = [
-                d for d in current_data['kpi_data']
-                if str(d.get('CIA', '')) == str(cia) and str(d.get('PRJID', '')) == str(prjid)
-            ]
-
-        # Filter historic data
-        if 'historic_data' in current_data and current_data['historic_data']:
-            filtered_data['historic_data'] = [
-                d for d in current_data['historic_data']
-                if str(d.get('CIA', '')) == str(cia) and str(d.get('PRJID', '')) == str(prjid)
-            ]
-
-        # Check if there are no valid labels
-        if not filtered_data['kpi_data'] and not filtered_data['historic_data']:
-            return current_data, html.Div("No valid labels found for the selected combination.", style={'color': 'red'}), {'display': 'block'}, {'display': 'block'}
-
-        # Create view based on the current state
-        current_view = view_state.get('current_view', 'kpi')
-        view = create_kpi_view(filtered_data) if current_view == 'kpi' else create_historic_view(filtered_data)
-
-        return filtered_data, view, {'display': 'none'}, {'display': 'block'}
-
-    # Callback 2: Close Dashboard
     @app.callback(
         Output('close-trigger', 'data'),
         Input('btn-close', 'n_clicks'),
@@ -577,23 +419,19 @@ def stop_server():
     Detiene el servidor Dash de manera controlada
     """
     global app_running
-    
     print("\nCerrando el dashboard...")
-    
-    # 1. Primero cerramos el navegador
+    # 1. Cerrar Safari si está abierto
     try:
-        # En macOS, cerrar Safari si está abierto en el puerto 8050
         subprocess.run(['pkill', '-x', 'Safari'])
+        print("Safari cerrado correctamente.")
     except Exception as e:
-        print(f"Error al cerrar el navegador: {e}")
-    
-    # 2. Marcamos la aplicación para que termine
+        print(f"Error al cerrar Safari: {e}")
+    # 2. Marcar la aplicación para terminar
     app_running = False
-    
-    # 3. Esperamos un momento para que el hilo principal detecte que debe terminar
+    # 3. Esperar un momento para que el hilo principal detecte que debe terminar
     time.sleep(1)
-    
-    # 4. Si después de esperar no se ha cerrado, forzamos el cierre
+    # 4. Forzar el cierre de la aplicación Dash
+    print("Cerrando el proceso Dash...")
     os._exit(0)
 
 def main():
@@ -608,13 +446,11 @@ def main():
 
         print("Cargando datos...")  # Debug
         # Cargar datos usando excel_data_extractor
-        data = extract_data()
+        data = load_dashboard_data()
         if not data:
             raise ValueError("No se pudieron cargar los datos")
-        
         print("Datos cargados correctamente")  # Debug
-        print(f"KPIs: {len(data.get('kpi_data', []))}")  # Debug
-        print(f"Históricos: {len(data.get('historic_data', []))}")  # Debug
+        print(f"Total celdas: {len(data)}")  # Debug
 
         # Crear la aplicación Dash
         app = Dash(__name__, 
@@ -623,7 +459,7 @@ def main():
         
         print("Configurando layout...")  # Debug
         # Configurar el layout
-        app.layout = create_layout(data)
+        app.layout = create_layout()
         
         print("Inicializando callbacks...")  # Debug
         # Inicializar callbacks
