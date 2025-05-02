@@ -23,13 +23,10 @@ from dash_utils import check_and_kill_process_on_port, reserve_port
 
 # Importar módulos propios
 try:
-    from excel_data_extractor import main as extract_data
+    from dashboard_tree_view import create_tree_view
 except ImportError as e:
     print(f"Error al importar módulos: {e}")
     sys.exit(1)
-
-# Adapt the data handling to align with the structure defined in test_excel_data_extractor.py
-from excel_data_extractor import main as extract_excel_data
 
 # Variable global para controlar el estado de la aplicación
 app_running = True
@@ -94,9 +91,131 @@ def wait_for_server(port, timeout=30):
 
 def load_dashboard_data():
     """
-    Carga los datos extraídos como lista de dicts con DATATYPE y DATACONTENTS
+    Carga los datos reales desde Excel para el dashboard
     """
-    return extract_excel_data()
+    try:
+        # Importar el módulo para extraer datos de Excel
+        from excel_main import main as extract_excel_data
+        
+        # Cargar datos reales desde Excel
+        return extract_excel_data()
+    except ImportError as e:
+        print(f"Error al importar el módulo excel_main: {e}")
+        print("Usando datos simulados como respaldo...")
+        return create_mock_data()
+
+def create_mock_data():
+    """
+    Crea datos simulados para el dashboard
+    """
+    # Datos simulados para KPIs
+    kpi_data = [
+        {
+            "CIA": "CIA1",
+            "PRJID": "31199",  # Cambiado de "PRJ1" a "31199"
+            "ROW": "1: Ingresos",
+            "COLUMN": "1: Actual",
+            "DATATYPE": "K",
+            "DATACONTENTS": {
+                "KPREV": 100000,
+                "PDTE": 50000,
+                "REALPREV": 0.75,
+                "PPTOPREV": 0.80
+            }
+        },
+        {
+            "CIA": "CIA1",
+            "PRJID": "31200",  # Añadido proyecto 31200
+            "ROW": "2: Gastos",
+            "COLUMN": "1: Actual",
+            "DATATYPE": "K",
+            "DATACONTENTS": {
+                "KPREV": -80000,
+                "PDTE": -30000,
+                "REALPREV": 0.65,
+                "PPTOPREV": 0.70
+            }
+        }
+    ]
+    
+    # Datos simulados para históricos
+    historic_data = [
+        {
+            "CIA": "CIA1",
+            "PRJID": "PRJ1",
+            "ROW": "1: Ingresos",
+            "COLUMN": "1: Actual",
+            "DATATYPE": "H",
+            "DATACONTENTS": [
+                {"WKS": "2023.01", "WKS_DATE": "2023-01-08", "WKS_SERIAL": 44934, "PPTO": 10000, "REAL": 9500, "HPREV": 9800},
+                {"WKS": "2023.02", "WKS_DATE": "2023-01-15", "WKS_SERIAL": 44941, "PPTO": 12000, "REAL": 11800, "HPREV": 12100},
+                {"WKS": "2023.03", "WKS_DATE": "2023-01-22", "WKS_SERIAL": 44948, "PPTO": 13000, "REAL": 13200, "HPREV": 13500}
+            ]
+        },
+        {
+            "CIA": "CIA1",
+            "PRJID": "PRJ1",
+            "ROW": "2: Gastos",
+            "COLUMN": "1: Actual",
+            "DATATYPE": "H",
+            "DATACONTENTS": [
+                {"WKS": "2023.01", "WKS_DATE": "2023-01-08", "WKS_SERIAL": 44934, "PPTO": -8000, "REAL": -7800, "HPREV": -7900},
+                {"WKS": "2023.02", "WKS_DATE": "2023-01-15", "WKS_SERIAL": 44941, "PPTO": -9000, "REAL": -9200, "HPREV": -9100},
+                {"WKS": "2023.03", "WKS_DATE": "2023-01-22", "WKS_SERIAL": 44948, "PPTO": -10000, "REAL": -9800, "HPREV": -10200}
+            ]
+        }
+    ]
+    
+    # Datos simulados para árbol de costes
+    tree_data = [
+        {
+            "CIA": "CIA1",
+            "PRJID": "31199",  # Cambiado de "PRJ1" a "31199"
+            "ROW": "3: Estructura de Costes",
+            "COLUMN": "1: Actual",
+            "DATATYPE": "T",
+            "DATACONTENTS": [
+                {"itm_id": "1000", "parent_id": None, "description": "Costes Directos", "value": 750000},
+                {"itm_id": "1100", "parent_id": "1000", "description": "Materiales", "value": 350000},
+                {"itm_id": "1110", "parent_id": "1100", "description": "Hormigón", "value": 120000},
+                {"itm_id": "1120", "parent_id": "1100", "description": "Acero", "value": 95000},
+                {"itm_id": "1130", "parent_id": "1100", "description": "Madera", "value": 45000},
+                {"itm_id": "1140", "parent_id": "1100", "description": "Otros materiales", "value": 90000},
+                {"itm_id": "1200", "parent_id": "1000", "description": "Mano de obra", "value": 280000},
+                {"itm_id": "1210", "parent_id": "1200", "description": "Albañilería", "value": 120000},
+                {"itm_id": "1220", "parent_id": "1200", "description": "Electricidad", "value": 60000},
+                {"itm_id": "1230", "parent_id": "1200", "description": "Fontanería", "value": 50000},
+                {"itm_id": "1240", "parent_id": "1200", "description": "Acabados", "value": 50000},
+                {"itm_id": "1300", "parent_id": "1000", "description": "Maquinaria", "value": 120000},
+                {"itm_id": "2000", "parent_id": None, "description": "Costes Indirectos", "value": 250000},
+                {"itm_id": "2100", "parent_id": "2000", "description": "Gestión", "value": 100000},
+                {"itm_id": "2200", "parent_id": "2000", "description": "Seguros", "value": 50000},
+                {"itm_id": "2300", "parent_id": "2000", "description": "Licencias", "value": 30000},
+                {"itm_id": "2400", "parent_id": "2000", "description": "Otros gastos", "value": 70000}
+            ]
+        },
+        {
+            "CIA": "CIA1",
+            "PRJID": "31200",  # Añadido proyecto 31200
+            "ROW": "3: Estructura de Costes",
+            "COLUMN": "1: Actual",
+            "DATATYPE": "T",
+            "DATACONTENTS": [
+                {"itm_id": "1000", "parent_id": None, "description": "Costes Directos", "value": 800000},
+                {"itm_id": "1100", "parent_id": "1000", "description": "Materiales", "value": 400000},
+                {"itm_id": "1110", "parent_id": "1100", "description": "Hormigón", "value": 150000},
+                {"itm_id": "1120", "parent_id": "1100", "description": "Acero", "value": 120000},
+                {"itm_id": "1130", "parent_id": "1100", "description": "Madera", "value": 50000},
+                {"itm_id": "1140", "parent_id": "1100", "description": "Otros materiales", "value": 80000},
+                {"itm_id": "1200", "parent_id": "1000", "description": "Mano de obra", "value": 300000},
+                {"itm_id": "1300", "parent_id": "1000", "description": "Maquinaria", "value": 100000},
+                {"itm_id": "2000", "parent_id": None, "description": "Costes Indirectos", "value": 200000}
+            ]
+        }
+    ]
+    
+    # Combinar todos los datos
+    return kpi_data + historic_data + tree_data
 
 def create_layout():
     data = load_dashboard_data()
@@ -114,7 +233,20 @@ def create_layout():
             dcc.Dropdown(id='prjid-filter', options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], placeholder='Selecciona un PRJID', style={'width': '220px'}),
             html.Button("Actualizar datos", id="apply-filters", n_clicks=0, style={"marginLeft": "20px", "marginRight": "20px", "height": "40px"}),
             html.Button("Cerrar Dashboard", id="btn-close", n_clicks=0, style={"backgroundColor": "#dc3545", "color": "white", "height": "40px"}),
-            html.Button("Alternar KPI/HISTÓRICO", id="toggle-view-btn", n_clicks=0, style={"marginLeft": "20px", "height": "40px"})
+            # Reemplazar el botón de alternancia por un grupo de botones de opción
+            html.Div([
+                dcc.RadioItems(
+                    id='view-selector',
+                    options=[
+                        {'label': 'KPI', 'value': 'kpi'},
+                        {'label': 'HISTÓRICO', 'value': 'historic'},
+                        {'label': 'ÁRBOL', 'value': 'tree'}
+                    ],
+                    value='kpi',  # Valor predeterminado
+                    labelStyle={'display': 'inline-block', 'marginRight': '10px', 'fontWeight': 'bold'},
+                    style={'display': 'flex', 'justifyContent': 'center'}
+                )
+            ], style={"marginLeft": "20px"})
         ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'marginBottom': '20px', 'gap': '10px'}),
         html.Div(id='dashboard-content'),
         html.Div(id='user-message', style={'color': 'red', 'textAlign': 'center', 'marginTop': '10px'}),
@@ -128,16 +260,38 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.layout = create_layout()
 
 # Callback para alternar entre KPIs e Históricos
-@app.callback(
-    Output('toggle-view-btn', 'style'),
-    Input('toggle-view-btn', 'n_clicks'),
-    prevent_initial_call=True
-)
-def toggle_view(n_clicks):
-    if n_clicks % 2 == 0:
-        return {'backgroundColor': 'blue', 'color': 'white', 'width': '150px', 'height': '40px'}
-    else:
-        return {'backgroundColor': 'red', 'color': 'white', 'width': '150px', 'height': '40px'}
+# Eliminar los callbacks del botón de alternancia que ya no se necesitan
+# @app.callback(
+#     Output('toggle-view-btn', 'style'),
+#     Input('toggle-view-btn', 'n_clicks')
+# )
+# def toggle_view(n_clicks):
+#     if n_clicks is None:
+#         return {'backgroundColor': 'blue', 'color': 'white', 'width': '150px', 'height': '40px'}
+#     
+#     view_type = n_clicks % 3
+#     if view_type == 0:
+#         return {'backgroundColor': 'blue', 'color': 'white', 'width': '150px', 'height': '40px'}
+#     elif view_type == 1:
+#         return {'backgroundColor': 'red', 'color': 'white', 'width': '150px', 'height': '40px'}
+#     else:
+#         return {'backgroundColor': 'green', 'color': 'white', 'width': '150px', 'height': '40px'}
+#
+# @app.callback(
+#     Output('toggle-view-btn', 'children'),
+#     Input('toggle-view-btn', 'n_clicks')
+# )
+# def update_button_text(n_clicks):
+#     if n_clicks is None:
+#         return "Vista: KPI"
+#     
+#     view_type = n_clicks % 3
+#     if view_type == 0:
+#         return "Vista: KPI"
+#     elif view_type == 1:
+#         return "Vista: HISTÓRICO"
+#     else:
+#         return "Vista: ÁRBOL"
 
 def create_dashboard_card(row):
     print(f"[DEBUG] Creando tarjeta para ROW={row.get('ROW')} COLUMN={row.get('COLUMN')} DATATYPE={row.get('DATATYPE')}")
@@ -419,9 +573,9 @@ def init_callbacks(app):
         [Input('apply-filters', 'n_clicks')],
         [State('cia-filter', 'value'),
          State('prjid-filter', 'value'),
-         State('toggle-view-btn', 'n_clicks')]
+         State('view-selector', 'value')]
     )
-    def update_dashboard_content(apply_n_clicks, cia, prjid, toggle_n_clicks):
+    def update_dashboard_content(apply_n_clicks, cia, prjid, view_type):
         data = load_dashboard_data()
         # Filtrar por CIA y PRJID si están seleccionados
         if cia:
@@ -431,11 +585,14 @@ def init_callbacks(app):
         # Si no hay datos para la combinación, informar al usuario
         if not data:
             return None, "No hay datos para la combinación seleccionada. Cambie su selección."
-        # Determinar vista: par = KPI, impar = HISTÓRICO
-        if toggle_n_clicks is None or toggle_n_clicks % 2 == 0:
+        
+        # Determinar vista según el valor del selector
+        if view_type == 'kpi':
             return create_kpi_view(data), ""
-        else:
+        elif view_type == 'historic':
             return create_historic_view(data), ""
+        else:  # view_type == 'tree'
+            return create_tree_view(data), ""
 
     @app.callback(
         Output('close-trigger', 'children'),
@@ -467,6 +624,81 @@ def stop_server():
     print("Cerrando el proceso Dash...")
     os._exit(0)
 
+def create_tree_view(data):
+    """
+    Crea la vista de árbol de costes para datos tipo T
+    """
+    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
+    if not tree_data:
+        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    
+    # Procesamos los datos para convertirlos en estructura de árbol
+    tree_cards = []
+    for row in tree_data:
+        if not row.get("DATACONTENTS"):
+            continue
+        
+        # Ya no necesitamos construir la estructura jerárquica aquí
+        # Los datos ya deben venir estructurados desde excel_data_extractor
+        tree_structure = row.get("DATACONTENTS", {})
+        
+        # Crear tarjeta con el árbol
+        card = html.Div([
+            html.H5(f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"),
+            dcc.Graph(
+                figure=dashboard_tree_view(tree_structure, row.get('ROW', '')),
+                config={'displayModeBar': False}
+            )
+        ], style={
+            'margin': '12px',
+            'border': '1px solid #dee2e6',
+            'borderRadius': '6px',
+            'backgroundColor': '#ffffff',
+            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
+            'width': '600px',
+            'display': 'inline-block',
+            'verticalAlign': 'top'
+        })
+        tree_cards.append(card)
+    
+    return html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
+
+def build_tree_structure(tree_items):
+    """
+    Construye una estructura jerárquica a partir de una lista plana de elementos de árbol
+    """
+    # Crear diccionario para mapear ID a nodo
+    nodes_by_id = {}
+    root = {"children": []}
+    
+    # Primera pasada: crear todos los nodos
+    for item in tree_items:
+        item_id = item.get("itm_id")
+        if item_id:
+            nodes_by_id[item_id] = {
+                "itm_id": item_id,
+                "value": item.get("value", 0),
+                "description": item.get("description", ""),
+                "children": []
+            }
+    
+    # Segunda pasada: establecer relaciones padre-hijo
+    for item in tree_items:
+        item_id = item.get("itm_id")
+        parent_id = item.get("parent_id")
+        
+        if item_id and item_id in nodes_by_id:
+            node = nodes_by_id[item_id]
+            
+            # Si tiene padre, añadirlo como hijo
+            if parent_id and parent_id in nodes_by_id:
+                nodes_by_id[parent_id]["children"].append(node)
+            else:
+                # Si no tiene padre o el padre no existe, añadirlo a la raíz
+                root["children"].append(node)
+    
+    return root
+
 def main():
     """
     Función principal que inicia la aplicación del dashboard
@@ -477,11 +709,11 @@ def main():
         check_and_kill_process_on_port(PORT)
         reserve_port(PORT)
 
-        print("Cargando datos...")  # Debug
-        # Cargar datos usando excel_data_extractor
+        print("Cargando datos simulados...")  # Debug
+        # Cargar datos simulados
         data = load_dashboard_data()
         if not data:
-            raise ValueError("No se pudieron cargar los datos")
+            raise ValueError("No se pudieron cargar los datos simulados")
         print("Datos cargados correctamente")  # Debug
         print(f"Total celdas: {len(data)}")  # Debug
 
