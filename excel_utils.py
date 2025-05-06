@@ -11,7 +11,7 @@ TREE_SHEET = "F_Asg3"
 def extract_tree_data(excel_path, sheet_name):
     """
     Extrae datos de la estructura jerárquica desde una hoja de Excel.
-    Columnas esperadas: CIA, PRJID, ROW, COLUMN, LEVEL, NODE, NODEP, ITMID, TYPE, VALUE
+    Columnas esperadas: CIA, PRJID, ROW, COLUMN, LEVEL, NODE, NODEP, ITMIN, VALUE
     """
     try:
         # Leer el Excel directamente con los nombres en mayúsculas
@@ -19,25 +19,23 @@ def extract_tree_data(excel_path, sheet_name):
             'CIA': str,
             'PRJID': str,
             'ROW': str,
-            'COLUMN': str
+            'COLUMN': str,
+            'ITMIN': str  # Usamos ITMIN directamente
         })
         
-        # Imprimir columnas para diagnóstico
-        print(f"Columnas en el Excel: {df.columns.tolist()}")
+        # Eliminar la columna TYPE si existe
+        if 'TYPE' in df.columns:
+            df = df.drop(columns=['TYPE'])
         
-        # Asegurar que los tipos de datos son correctos para las columnas numéricas
         df['LEVEL'] = df['LEVEL'].astype(int)
         df['NODE'] = df['NODE'].astype(int)
         df['NODEP'] = df['NODEP'].astype(int)
         
-        # Convertir VALUE a numérico si es necesario
         if df['VALUE'].dtype == object:
             df['VALUE'] = df['VALUE'].str.replace(',', '.').astype(float)
             
         return df.to_dict(orient="records")
     except Exception as e:
-        print(f"Error al extraer datos de árbol: {e}")
-        traceback.print_exc()
         return []
 
 def build_tree_structure(items):
@@ -66,129 +64,149 @@ def build_tree_structure(items):
     else:
         return None
 
+def to_treemap(node):
+    """
+    Transforma un nodo de árbol purgado al formato compatible con Plotly treemap.
+    """
+    return {
+        "id": f"{node['LEVEL']}-{node['NODE']}-{node['ITMIN']}",
+        "value": node["VALUE"],
+        "children": [to_treemap(child) for child in node.get("children", [])] if node.get("children") else []
+    }
+
 def procesar_datos_arbol(items):
     """
     Procesa los datos de árbol para una combinación CIA+PRJID+ROW.
-    
     Args:
         items: Lista de registros con la misma combinación CIA+PRJID+ROW.
-        
     Returns:
         Un diccionario donde las claves son los valores de COLUMN y los valores
-        son las estructuras de árbol correspondientes. Si una estructura tiene
-        valor 0 después de la agregación, se establece como None.
+        son las estructuras de árbol correspondientes en formato treemap.
     """
-    # Paso 1: Agrupar por CIA+PRJID+ROW (ignorar COLUMN)
+    for item in items:
+        if 'ITMIN' not in item:
+            return {}
     items_by_row = {}
     for item in items:
         row_key = (item["CIA"], item["PRJID"], item["ROW"])
         if row_key not in items_by_row:
             items_by_row[row_key] = []
         items_by_row[row_key].append(item)
-    
-    # Si no hay datos, retornar un diccionario vacío
     if not items_by_row:
         return {}
-    
-    # Tomar el primer grupo (solo debería haber uno ya que filtramos por CIA+PRJID+ROW)
-    row_items = list(items_by_row.values())[0]
-    
-    # Paso 2: Construir el árbol básico
-    nodes_by_id = {}
-    root_nodes = []
-    
-    for item in row_items:
-        node = {
-            "NODE": item["NODE"],
-            "ITMID": item["ITMID"],
-            "VALUE": item["VALUE"],
-            "TYPE": item["TYPE"],
-            "LEVEL": item["LEVEL"],
-            "COLUMN": item["COLUMN"],  # Mantener COLUMN para identificación
-            "children": []
-        }
-        nodes_by_id[item["NODE"]] = node
-        
-        if item["NODEP"] == 0:
-            root_nodes.append(node)
-        elif item["NODEP"] in nodes_by_id:
-            nodes_by_id[item["NODEP"]]["children"].append(node)
-    
-    # Si no hay nodos raíz, retornar un diccionario vacío
-    if not root_nodes:
-        return {}
-    
-    # Paso 3: Identificar nodos hoja con VALUE≠0 y sus valores COLUMN
-    valid_columns = set()
-    
-    def identify_valid_columns(node):
-        if not node["children"]:
-            # Es un nodo hoja
-            if node["VALUE"] != 0:
-                valid_columns.add(node["COLUMN"])
-            return node["VALUE"] != 0
-        
-        # Para nodos con hijos, verificar recursivamente
-        has_valid_child = False
-        for child in node["children"]:
-            if identify_valid_columns(child):
-                has_valid_child = True
-        
-        return has_valid_child
-    
-    # Identificar columnas válidas
-    for root in root_nodes:
-        identify_valid_columns(root)
-    
-    # Paso 4: Calcular valores agregados y asignar COLUMN
     result = {}
-    
-    for column in valid_columns:
-        # Crear una copia de la estructura para cada COLUMN válida
-        column_structure = None
-        
-        def process_structure(node, parent=None):
-            # Crear una copia del nodo
-            new_node = {
-                "NODE": node["NODE"],
-                "ITMID": node["ITMID"],
-                "VALUE": 0,  # Inicializar en 0, se recalculará
-                "TYPE": node["TYPE"],
-                "LEVEL": node["LEVEL"],
+    for row_key, row_items in items_by_row.items():
+        cia, prjid, row = row_key
+        nodes_by_id = {}
+        root_nodes = []
+        for item in row_items:
+            node = {
+                "NODE": item["NODE"],
+                "ITMIN": item["ITMIN"],
+                "VALUE": item["VALUE"],
+                "LEVEL": item["LEVEL"],
+                "COLUMN": item["COLUMN"],
                 "children": []
             }
-            
-            if parent is not None:
-                parent["children"].append(new_node)
-            
-            # Procesar hijos
-            for child in node["children"]:
-                process_structure(child, new_node)
-            
-            # Calcular valor
-            if not new_node["children"]:
-                # Es un nodo hoja
-                if node["COLUMN"] == column and node["VALUE"] != 0:
-                    new_node["VALUE"] = node["VALUE"]
+            nodes_by_id[(item["NODE"], item["LEVEL"])] = node
+            if item["NODEP"] == 0:
+                root_nodes.append(node)
+            elif (item["NODEP"], item["LEVEL"]-1) in nodes_by_id:
+                nodes_by_id[(item["NODEP"], item["LEVEL"]-1)]["children"].append(node)
+        if not root_nodes:
+            continue
+        leaf_columns = set()
+        for node in nodes_by_id.values():
+            if not node["children"]:
+                leaf_columns.add(node["COLUMN"])
+        for column in leaf_columns:
+            def purge_tree(node):
+                if not node["children"]:
+                    if node["COLUMN"] == column and node["VALUE"] != 0:
+                        return {
+                            "NODE": node["NODE"],
+                            "ITMIN": node["ITMIN"],
+                            "VALUE": node["VALUE"],
+                            "LEVEL": node["LEVEL"],
+                            "COLUMN": column,
+                            "children": []
+                        }
+                    return None
+                new_children = []
+                for child in node["children"]:
+                    purged_child = purge_tree(child)
+                    if purged_child is not None:
+                        new_children.append(purged_child)
+                if not new_children:
+                    return None
+                total_value = sum(child["VALUE"] for child in new_children if child["VALUE"] is not None)
+                if total_value == 0:
+                    return None
+                return {
+                    "NODE": node["NODE"],
+                    "ITMIN": node["ITMIN"],
+                    "VALUE": total_value,
+                    "LEVEL": node["LEVEL"],
+                    "COLUMN": column,
+                    "children": new_children
+                }
+            purged_roots = []
+            for root in root_nodes:
+                purged_root = purge_tree(root)
+                if purged_root is not None:
+                    purged_roots.append(purged_root)
+            if purged_roots:
+                # Transformar a formato treemap antes de asignar
+                treemap = to_treemap(purged_roots[0]) if len(purged_roots) == 1 else [to_treemap(r) for r in purged_roots]
+                result[column] = treemap
             else:
-                # Es un nodo con hijos, calcular suma
-                new_node["VALUE"] = sum(child["VALUE"] for child in new_node["children"])
-            
-            return new_node
-        
-        # Procesar cada raíz
-        for root in root_nodes:
-            root_copy = process_structure(root)
-            
-            # Solo incluir si el valor es diferente de 0
-            if root_copy["VALUE"] != 0:
-                column_structure = root_copy
-                break
-        
-        # Solo incluir la estructura si tiene valor
-        if column_structure and column_structure.get("VALUE", 0) != 0:
-            result[column] = column_structure
+                result[column] = None
+    return result
+
+def simplify_tree(node, max_depth=2, current_depth=0):
+    """
+    Simplifica un árbol para visualización, limitando la profundidad.
+    """
+    if current_depth >= max_depth:
+        return {"...": f"(hay {len(node.get('children', []))} hijos más)"}
+    
+    result = {
+        "NODE": node.get("NODE"),
+        "ITMIN": node.get("ITMIN"),
+        "VALUE": node.get("VALUE"),
+        "LEVEL": node.get("LEVEL")
+    }
+    
+    children = node.get("children", [])
+    if children:
+        if current_depth < max_depth - 1:
+            result["children"] = [simplify_tree(child, max_depth, current_depth + 1) for child in children[:3]]
+            if len(children) > 3:
+                result["children"].append({"...": f"(hay {len(children) - 3} hijos más)"})
         else:
-            result[column] = None
+            result["children"] = f"[{len(children)} hijos]"
     
     return result
+
+def count_nodes(node):
+    """
+    Cuenta el número total de nodos en un árbol.
+    """
+    count = 1  # Contar el nodo actual
+    for child in node.get("children", []):
+        count += count_nodes(child)
+    return count
+
+def count_by_level(node, levels=None, current_level=0):
+    """
+    Cuenta el número de nodos por nivel en un árbol.
+    """
+    if levels is None:
+        levels = {}
+    
+    levels[current_level] = levels.get(current_level, 0) + 1
+    
+    for child in node.get("children", []):
+        count_by_level(child, levels, current_level + 1)
+    
+    return levels
