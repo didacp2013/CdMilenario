@@ -16,7 +16,6 @@ def create_kpi_view(data):
     kpi_cards = []
     
     for cell_data in data:
-        # Verificar si la celda tiene datos KPI
         if 'CONTENIDO' in cell_data and 'KPIS' in cell_data['CONTENIDO']:
             kpis = cell_data['CONTENIDO']['KPIS']
             

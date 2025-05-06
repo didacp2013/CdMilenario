@@ -77,8 +77,8 @@ def structure_data(historic_data, kpi_data, tree_data):
     for record in historic_data:
         cia = record.get("CIA")
         prjid = str(record.get("PRJID"))  # Asegurar string
-        row = record.get("ROW")
-        column = record.get("COLUMN")
+        row = str(record.get("ROW", "")).strip()  # Asegurar string y eliminar espacios
+        column = str(record.get("COLUMN", "")).strip()  # Asegurar string y eliminar espacios
 
         if cia not in structured_data:
             structured_data[cia] = {}
@@ -114,8 +114,8 @@ def structure_data(historic_data, kpi_data, tree_data):
     for record in kpi_data:
         cia = record.get("CIA")
         prjid = str(record.get("PRJID"))  # Asegurar string
-        row = record.get("ROW")
-        column = record.get("COLUMN")
+        row = str(record.get("ROW", "")).strip()  # Asegurar string y eliminar espacios
+        column = str(record.get("COLUMN", "")).strip()  # Asegurar string y eliminar espacios
 
         if cia not in structured_data:
             structured_data[cia] = {}
@@ -147,7 +147,10 @@ def structure_data(historic_data, kpi_data, tree_data):
     if tree_data:
         tree_by_row = {}
         for record in tree_data:
-            row_key = (record.get("CIA"), record.get("PRJID"), record.get("ROW"))
+            row = str(record.get("ROW", "")).strip()  # Asegurar string y eliminar espacios
+            column = str(record.get("COLUMN", "")).strip()  # Asegurar string y eliminar espacios
+
+            row_key = (record.get("CIA"), record.get("PRJID"), row)
             if row_key not in tree_by_row:
                 tree_by_row[row_key] = []
             tree_by_row[row_key].append(record)
@@ -167,6 +170,48 @@ def structure_data(historic_data, kpi_data, tree_data):
                         structured_data[cia][prjid][row][column] = {}
                     structured_data[cia][prjid][row][column]["T"] = tree_structure
 
+    # Limpieza final: eliminar elementos None en listas de históricos (H)
+    for cia in structured_data:
+        for prjid in structured_data[cia]:
+            for row in structured_data[cia][prjid]:
+                for column in structured_data[cia][prjid][row]:
+                    cell = structured_data[cia][prjid][row][column]
+                    if "H" in cell and isinstance(cell["H"], list):
+                        cell["H"] = [h for h in cell["H"] if h is not None]
+                        if not cell["H"]:
+                            cell["H"] = None
+
+    # --- NUEVO: Correspondencia 1:1 en las claves para K, H, T ---
+    # Construir el conjunto de todas las claves posibles
+    all_keys = set()
+    # De históricos
+    for record in historic_data:
+        all_keys.add((str(record.get("CIA")), str(record.get("PRJID")), str(record.get("ROW")), str(record.get("COLUMN"))))
+    # De KPIs
+    for record in kpi_data:
+        all_keys.add((str(record.get("CIA")), str(record.get("PRJID")), str(record.get("ROW")), str(record.get("COLUMN"))))
+    # De árbol
+    for record in tree_data:
+        all_keys.add((str(record.get("CIA")), str(record.get("PRJID")), str(record.get("ROW")), str(record.get("COLUMN"))))
+
+    # Para cada clave y cada tipo, asegurar que hay un registro (aunque sea None)
+    for cia, prjid, row, column in all_keys:
+        if cia not in structured_data:
+            structured_data[cia] = {}
+        if prjid not in structured_data[cia]:
+            structured_data[cia][prjid] = {}
+        if row not in structured_data[cia][prjid]:
+            structured_data[cia][prjid][row] = {}
+        if column not in structured_data[cia][prjid][row]:
+            structured_data[cia][prjid][row][column] = {}
+        cell = structured_data[cia][prjid][row][column]
+        if "K" not in cell:
+            cell["K"] = None
+        if "H" not in cell:
+            cell["H"] = None
+        if "T" not in cell:
+            cell["T"] = None
+    # --- FIN NUEVO ---
     return structured_data
 
 def compare_kpi_tree_data(kpi_data, tree_data, historic_data):
@@ -238,24 +283,6 @@ def main():
     kpi_data = extract_kpi_data(EXCEL_PATH, KPI_SHEET)
     tree_data = extract_tree_data(EXCEL_PATH, TREE_SHEET)
     
-    # Depuración: Verificar datos de árbol
-    print("\n=== VERIFICACIÓN DE DATOS DE ÁRBOL ===")
-    target_items = [
-        item for item in tree_data 
-        if str(item["CIA"]).upper() == "SP" and 
-           str(item["PRJID"]) == "31200" and 
-           "FABRICACIÓN UTILES" in str(item["ROW"]).strip().upper() and
-           "FABRICACIÓN MECÁNICA" in str(item["COLUMN"]).strip().upper()
-    ]
-    
-    if target_items:
-        print(f"\nEncontrados {len(target_items)} registros para CIA=Sp, PRJID=31200, ROW=FABRICACIÓN UTILES, COLUMN=FABRICACIÓN MECÁNICA")
-        print("\nRegistros encontrados:")
-        for item in sorted(target_items, key=lambda x: (x["LEVEL"], x["NODE"])):
-            print(f"  Nivel {item['LEVEL']}, Nodo {item['NODE']}, Padre {item['NODEP']}, ITMIN={item['ITMIN']}, VALUE={item['VALUE']}")
-    else:
-        print("\nNo se encontraron registros para CIA=Sp, PRJID=31200, ROW=FABRICACIÓN UTILES, COLUMN=FABRICACIÓN MECÁNICA")
-    
     # Estructurar datos
     structured_data = structure_data(historic_data, kpi_data, tree_data)
     
@@ -299,22 +326,6 @@ def main():
     # Ordenar el resultado final por las mismas claves y DATATYPE
     result.sort(key=lambda r: (str(r["CIA"]), str(r["PRJID"]), str(r["ROW"]), str(r["COLUMN"]), r["DATATYPE"]))
     comparar_resultados_finales(result)
-    # Mostrar solo la casilla específica solicitada
-    print("\n=== Casilla específica: CIA=Sp, PRJID=31200, ROW=FABRICACIÓN UTILES, COLUMN=FABRICACIÓN MECÁNICA ===")
-    tipos = ["K", "H", "T"]
-    for tipo in tipos:
-        for r in result:
-            if (str(r["CIA"]).upper() == "SP" and
-                str(r["PRJID"]) == "31200" and
-                "FABRICACIÓN UTILES" in str(r["ROW"]).strip().upper() and
-                "FABRICACIÓN MECÁNICA" in str(r["COLUMN"]).strip().upper() and
-                r["DATATYPE"] == tipo):
-                print(f"  DATATYPE {tipo}: {r['DATACONTENTS']}")
-                # Si es tipo T, mostrar el árbol simplificado
-                if tipo == "T" and r["DATACONTENTS"] is not None:
-                    import pprint
-                    print("  Árbol simplificado (primeros niveles):")
-                    pprint.pprint(r["DATACONTENTS"])
     return result
 
 if __name__ == "__main__":

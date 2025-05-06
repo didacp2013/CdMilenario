@@ -9,50 +9,6 @@ from dash import html, dcc
 import json
 import pandas as pd
 
-# Eliminamos la función build_tree_structure ya que debe estar en excel_data_extractor.py
-def build_tree_structure(tree_items):
-    """
-    Construye una estructura jerárquica a partir de una lista plana de elementos de árbol
-    """
-    # Crear diccionario para mapear ID a nodo
-    nodes_by_id = {}
-    root = {"children": []}
-    
-    # Primera pasada: crear todos los nodos
-    for item in tree_items:
-        item_id = item.get("itm_id")
-        if item_id:
-            nodes_by_id[item_id] = {
-                "itm_id": item_id,
-                "value": item.get("value", 0),
-                "description": item.get("description", ""),
-                "children": []
-            }
-    
-    # Segunda pasada: establecer relaciones padre-hijo
-    for item in tree_items:
-        item_id = item.get("itm_id")
-        parent_id = item.get("parent_id")
-        
-        if item_id and item_id in nodes_by_id:
-            node = nodes_by_id[item_id]
-            
-            # Si tiene padre, añadirlo como hijo
-            if parent_id and parent_id in nodes_by_id:
-                nodes_by_id[parent_id]["children"].append(node)
-            else:
-                # Si no tiene padre o el padre no existe, añadirlo a la raíz
-                root["children"].append(node)
-    
-    # Asegurarse de que la raíz tenga un valor que sea la suma de sus hijos
-    if root["children"]:
-        root_value = sum(child.get("value", 0) for child in root["children"])
-        root["value"] = root_value
-        root["description"] = "Total"
-        root["itm_id"] = "root"
-    
-    return root
-
 def create_tree_view(data):
     """
     Crea la vista de árbol de costes para datos tipo T
@@ -81,14 +37,12 @@ def create_tree_view(data):
         title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
         
         # Crear figura de treemap
-        fig = create_treemap_figure(tree_structure, title=f"Árbol de Costes: {title}")
+        fig = create_treemap_figure(tree_structure, title="")
         
         # Crear tarjeta con el treemap
         card = html.Div([
             html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
-            html.Div([
-                dcc.Graph(figure=fig, config={'displayModeBar': False})
-            ], style={'padding': '15px'})
+            dcc.Graph(figure=fig, config={'displayModeBar': False})
         ], style={
             'margin': '12px',
             'border': '1px solid #dee2e6',
@@ -107,7 +61,7 @@ def create_tree_view(data):
     
     return html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
 
-def create_treemap_figure(tree_structure, title="Árbol de Costes"):
+def create_treemap_figure(tree_structure, title=""):
     """
     Crea una figura de treemap usando Plotly
     """
@@ -115,29 +69,22 @@ def create_treemap_figure(tree_structure, title="Árbol de Costes"):
     parents = []
     values = []
     hover_texts = []
-    
+
     def process_node(node, parent=""):
-        # Usar la descripción como etiqueta si está disponible, de lo contrario usar el ID
-        item_id = node.get('itm_id', '')
-        description = node.get('description', '')
-        
-        # Crear una etiqueta que combine ID y descripción
-        display_label = f"{item_id}: {description}" if description else item_id
-        
+        # Usar 'id' como etiqueta
+        item_id = node.get('id', '')
+        display_label = str(item_id)
         labels.append(display_label)
         parents.append(parent)
         values.append(node.get('value', 0))
-        
-        # Texto para el hover que muestra más detalles
-        hover_text = f"ID: {item_id}<br>Descripción: {description}<br>Valor: {node.get('value', 0):,.2f} €"
+        hover_text = f"ID: {item_id}<br>Valor: {node.get('value', 0):,.2f} €"
         hover_texts.append(hover_text)
-        
         for child in node.get('children', []):
             process_node(child, display_label)
-    
+
     # Procesar el árbol recursivamente
     process_node(tree_structure)
-    
+
     # Crear la figura de treemap
     fig = go.Figure(go.Treemap(
         labels=labels,
@@ -154,7 +101,7 @@ def create_treemap_figure(tree_structure, title="Árbol de Costes"):
             visible=True
         )
     ))
-    
+
     # Configurar el layout
     fig.update_layout(
         title=title,
@@ -165,7 +112,6 @@ def create_treemap_figure(tree_structure, title="Árbol de Costes"):
             size=12
         )
     )
-    
     return fig
 
 
@@ -223,7 +169,7 @@ def debug_tree_structure(tree_structure, level=0, prefix=""):
     Imprime la estructura jerárquica del árbol en la terminal
     """
     if level == 0:
-        print("\n===== ESTRUCTURA DEL ÁRBOL DE COSTES =====")
+        print("\n===== ESTRUCTURA DEL ÁRBOL =====")
         print("ID: Descripción [Valor]")
         print("----------------------------------------")
     

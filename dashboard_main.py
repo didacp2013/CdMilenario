@@ -224,9 +224,7 @@ def create_layout():
     return html.Div([
         html.Div([
             html.H1("Dashboard de Seguimiento", style={
-                'color': '#2c3e50', 'textAlign': 'center', 'marginBottom': '10px', 'fontWeight': '700'}),
-            html.H4("Visualización de KPIs e Históricos", style={
-                'color': '#4a6fa5', 'textAlign': 'center', 'marginBottom': '20px', 'fontWeight': '400'})
+                'color': '#2c3e50', 'textAlign': 'center', 'marginBottom': '10px', 'fontWeight': '700'})
         ], style={'padding': '20px 0', 'borderBottom': '2px solid #4a6fa5', 'marginBottom': '30px', 'background': 'linear-gradient(to right, #f8f9fa, #e9ecef, #f8f9fa)'}),
         html.Div([
             dcc.Dropdown(id='cia-filter', options=[{'label': cia, 'value': cia} for cia in cia_values], placeholder='Selecciona una CIA', style={'width': '220px'}),
@@ -349,7 +347,7 @@ def create_dashboard_card(row):
         # Usar WKS_SERIAL como eje X, ordenando por él
         data_tuples = [
             (h.get("WKS_SERIAL"), format_wks_label(h.get("WKS", "")), h.get("HPREV", 0), h.get("PPTO", 0), h.get("REAL", 0))
-            for h in historico if h.get("WKS_SERIAL") is not None
+            for h in historico if h is not None and h.get("WKS_SERIAL") is not None
         ]
         data_tuples.sort(key=lambda x: x[0])
         if data_tuples:
@@ -628,39 +626,38 @@ def create_tree_view(data):
     """
     Crea la vista de árbol de costes para datos tipo T
     """
+    from dashboard_tree_view import create_treemap_figure
+    def clean_label(label):
+        if label and ":" in label:
+            return label.split(":", 1)[1].strip()
+        return label or ""
     tree_data = [row for row in data if row.get("DATATYPE") == "T"]
     if not tree_data:
         return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
-    
     # Procesamos los datos para convertirlos en estructura de árbol
     tree_cards = []
     for row in tree_data:
         if not row.get("DATACONTENTS"):
             continue
-        
-        # Ya no necesitamos construir la estructura jerárquica aquí
-        # Los datos ya deben venir estructurados desde excel_data_extractor
         tree_structure = row.get("DATACONTENTS", {})
-        
-        # Crear tarjeta con el árbol
+        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
+        fig = create_treemap_figure(tree_structure, title="")
         card = html.Div([
-            html.H5(f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"),
-            dcc.Graph(
-                figure=dashboard_tree_view(tree_structure, row.get('ROW', '')),
-                config={'displayModeBar': False}
-            )
+            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
+            html.Div([
+                dcc.Graph(figure=fig, config={'displayModeBar': False})
+            ], style={'padding': '15px'})
         ], style={
             'margin': '12px',
             'border': '1px solid #dee2e6',
             'borderRadius': '6px',
             'backgroundColor': '#ffffff',
             'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-            'width': '600px',
+            'width': '800px',
             'display': 'inline-block',
             'verticalAlign': 'top'
         })
         tree_cards.append(card)
-    
     return html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
 
 def build_tree_structure(tree_items):
