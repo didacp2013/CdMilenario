@@ -7,7 +7,7 @@ import os
 import sys
 import pandas as pd
 import datetime
-from excel_utils import extract_tree_data, procesar_datos_arbol, build_tree_structure, simplify_tree
+from excel_utils import extract_tree_data, procesar_datos_arbol
 
 # Valores hardcodeados del Excel y sus hojas
 EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/Tchart_V06.xlsm"
