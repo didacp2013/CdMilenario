@@ -119,9 +119,7 @@ def debug_tree_json(tree_structure):
     """
     Imprime la estructura del árbol en formato JSON con indentación
     """
-    print("\n===== ESTRUCTURA JSON DEL ÁRBOL =====")
-    print(json.dumps(tree_structure, indent=2, ensure_ascii=False))
-    print("=====================================\n")
+    pass
 
 
 def export_tree_to_excel(tree_structure, filename="tree_structure.xlsx"):
@@ -161,32 +159,10 @@ def export_tree_to_excel(tree_structure, filename="tree_structure.xlsx"):
     
     # Exportar a Excel
     df.to_excel(filename, index=False)
-    print(f"Estructura del árbol exportada a {filename}")
 
 
 def debug_tree_structure(tree_structure, level=0, prefix=""):
     """
     Imprime la estructura jerárquica del árbol en la terminal
     """
-    if level == 0:
-        print("\n===== ESTRUCTURA DEL ÁRBOL =====")
-        print("ID: Descripción [Valor]")
-        print("----------------------------------------")
-    
-    # Imprimir el nodo actual
-    item_id = tree_structure.get('itm_id', 'root')
-    description = tree_structure.get('description', '')
-    value = tree_structure.get('value', 0)
-    
-    # Crear indentación según el nivel
-    indent = "  " * level
-    
-    # Imprimir información del nodo
-    print(f"{indent}{prefix}{item_id}: {description} [{value:,.2f} €]")
-    
-    # Procesar hijos recursivamente
-    for i, child in enumerate(tree_structure.get('children', [])):
-        is_last = i == len(tree_structure.get('children', [])) - 1
-        new_prefix = "└── " if is_last else "├── "
-        child_prefix = "    " if is_last else "│   "
-        debug_tree_structure(child, level + 1, new_prefix)
+    pass

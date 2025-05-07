@@ -242,13 +242,6 @@ def compare_kpi_tree_data(kpi_data, tree_data, historic_data):
         key = (record["CIA"], record["PRJID"], record["ROW"], record["COLUMN"])
         if key in kpi_without_tree and record.get("REALPREV", 0) == 0:
             kpi_zero_without_tree += 1
-    
-    print("\n=== Estadísticas de comparación KPI vs Árbol ===")
-    print(f"Total registros KPI: {len(kpi_keys)}")
-    print(f"Total registros Árbol: {len(tree_keys)}")
-    print(f"KPIs sin árbol correspondiente: {len(kpi_without_tree)}")
-    print(f"De los cuales tienen valor 0: {kpi_zero_without_tree}")
-    print(f"Árboles sin KPI correspondiente: {len(tree_without_kpi)}")
 
 def comparar_resultados_finales(result):
     kpi_keys = set()
@@ -264,15 +257,6 @@ def comparar_resultados_finales(result):
     comunes = kpi_keys & tree_keys
     solo_kpi = kpi_keys - tree_keys
     solo_tree = tree_keys - kpi_keys
-
-    print(f"\n=== Comparación FINAL tras transformación ===")
-    print(f"Coincidencias KPI-Árbol: {len(comunes)}")
-    print(f"Solo KPI: {len(solo_kpi)}")
-    print(f"Solo Árbol: {len(solo_tree)}")
-    if solo_kpi:
-        print("Ejemplo solo KPI:", list(solo_kpi)[:3])
-    if solo_tree:
-        print("Ejemplo solo Árbol:", list(solo_tree)[:3])
 
 def main():
     """
