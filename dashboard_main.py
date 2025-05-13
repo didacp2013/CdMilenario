@@ -22,7 +22,7 @@ import pandas as pd
 from dash_utils import check_and_kill_process_on_port, reserve_port
 from dashboard_kpi_view import create_kpi_view as kpi_view_external
 from dashboard_historic_view import create_historic_view as historic_view_external
-from dashboard_tree_view import create_treemap_figure, render_tree_view
+from dashboard_tree_view import create_treemap_figure, create_tree_view
 
 # Variable global para controlar el estado de la aplicación
 app_running = True
@@ -140,51 +140,6 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 # Set the layout of the app
 app.layout = create_layout()
 
-def render_tree_view(data):
-    """
-    Renderiza la vista de árbol utilizando los datos de tipo T
-    """
-    def clean_label(label):
-        if label and ":" in label:
-            return label.split(":", 1)[1].strip()
-        return label or ""
-    
-    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
-    if not tree_data:
-        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
-    
-    # Procesamos los datos para convertirlos en estructura de árbol
-    tree_cards = []
-    for row in tree_data:
-        if not row.get("DATACONTENTS"):
-            continue
-        
-        tree_structure = row.get("DATACONTENTS", [])
-        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
-        
-        fig = create_treemap_figure(tree_structure, title="")
-        card = html.Div([
-            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
-            html.Div([
-                dcc.Graph(figure=fig, id='treemap-graph', config={'displayModeBar': False})
-            ], style={'padding': '15px'})
-        ], style={
-            'margin': '12px',
-            'border': '1px solid #dee2e6',
-            'borderRadius': '6px',
-            'backgroundColor': '#ffffff',
-            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-            'width': '800px',
-            'display': 'inline-block',
-            'verticalAlign': 'top'
-        })
-        tree_cards.append(card)
-    
-    return html.Div([
-        html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'}),
-        html.Div(id='node-info-modal', style={'display': 'none'})  # Contenedor para el modal
-    ])
-
 def init_callbacks(app):
     """
     Inicializa los callbacks principales del dashboard
@@ -215,7 +170,7 @@ def init_callbacks(app):
         elif view_type == 'historic':
             return historic_view_external(data), ""
         else:  # view_type == 'tree'
-            return render_tree_view(data), ""
+            return create_tree_view(data), ""
 
     @app.callback(
         Output('close-trigger', 'children'),

@@ -8,63 +8,168 @@ import plotly.graph_objects as go
 from dash import html, dcc
 import json
 import pandas as pd
-import numpy as np
 
-# Función create_tree_view eliminada
-
-def create_treemap_figure(tree_structure, title=""):
+# Eliminamos la función build_tree_structure ya que debe estar en excel_data_extractor.py
+def build_tree_structure(tree_items):
     """
-    Crea una figura de treemap usando Plotly Express a partir de una estructura de árbol jerárquica.
-    Usa 'id' como etiqueta visible.
+    Construye una estructura jerárquica a partir de una lista plana de elementos de árbol
     """
-    import plotly.express as px
+    # Crear diccionario para mapear ID a nodo
+    nodes_by_id = {}
+    root = {"children": []}
+    
+    # Primera pasada: crear todos los nodos
+    for item in tree_items:
+        item_id = item.get("itm_id")
+        if item_id:
+            nodes_by_id[item_id] = {
+                "itm_id": item_id,
+                "value": item.get("value", 0),
+                "description": item.get("description", ""),
+                "children": []
+            }
+    
+    # Segunda pasada: establecer relaciones padre-hijo
+    for item in tree_items:
+        item_id = item.get("itm_id")
+        parent_id = item.get("parent_id")
+        
+        if item_id and item_id in nodes_by_id:
+            node = nodes_by_id[item_id]
+            
+            # Si tiene padre, añadirlo como hijo
+            if parent_id and parent_id in nodes_by_id:
+                nodes_by_id[parent_id]["children"].append(node)
+            else:
+                # Si no tiene padre o el padre no existe, añadirlo a la raíz
+                root["children"].append(node)
+    
+    # Asegurarse de que la raíz tenga un valor que sea la suma de sus hijos
+    if root["children"]:
+        root_value = sum(child.get("value", 0) for child in root["children"])
+        root["value"] = root_value
+        root["description"] = "Total"
+        root["itm_id"] = "root"
+    
+    return root
 
-    # Si tree_structure es una lista de raíces, pásala directamente
-    # Si es un solo dict raíz, conviértelo en lista
-    if isinstance(tree_structure, dict):
-        tree_structure = [tree_structure]
+def create_tree_view(data):
+    """
+    Crea la vista de árbol de costes para datos tipo T
+    """
+    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
+    
+    if not tree_data:
+        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    
+    # Procesamos los datos para convertirlos en estructura de árbol
+    tree_cards = []
+    for row in tree_data:
+        if not row.get("DATACONTENTS"):
+            continue
+        
+        # Ya no necesitamos construir la estructura jerárquica aquí
+        # Los datos ya deben venir estructurados desde excel_data_extractor
+        tree_structure = row.get("DATACONTENTS", {})
+        
+        # Obtener título para la tarjeta
+        def clean_label(label):
+            if label and ":" in label:
+                return label.split(":", 1)[1].strip()
+            return label or ""
+        
+        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
+        
+        # Crear figura de treemap
+        fig = create_treemap_figure(tree_structure, title=f"Árbol de Costes: {title}")
+        
+        # Crear tarjeta con el treemap
+        card = html.Div([
+            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
+            html.Div([
+                dcc.Graph(figure=fig, config={'displayModeBar': False})
+            ], style={'padding': '15px'})
+        ], style={
+            'margin': '12px',
+            'border': '1px solid #dee2e6',
+            'borderRadius': '6px',
+            'backgroundColor': '#ffffff',
+            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
+            'width': '800px',
+            'display': 'inline-block',
+            'verticalAlign': 'top'
+        })
+        
+        tree_cards.append(card)
+    
+    if not tree_cards:
+        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    
+    return html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
 
-    # Plotly Express espera un DataFrame o una lista de dicts con claves 'id', 'parent', 'value'
-    # Pero si tienes jerarquía, puedes usar el parámetro path
-    # Vamos a construir un DataFrame solo si es necesario, pero intentaremos usar path
+def create_treemap_figure(tree_structure, title="Árbol de Costes"):
+    """
+    Crea una figura de treemap usando Plotly SOLO con los campos id, value y children.
+    """
+    labels = []
+    parents = []
+    values = []
+    hover_texts = []
 
-    # Si tus nodos tienen 'children', necesitas convertir la jerarquía a un DataFrame con path
-    # Pero si tienes una estructura simple, puedes hacer:
-    import pandas as pd
+    def process_node(node, parent=""):
+        node_id = node.get('id', '')
+        value = node.get('value', 0)
 
-    def extract_paths(node, path=None):
-        if path is None:
-            path = []
-        current_path = path + [node["id"]]
-        rows = []
-        if "children" in node and node["children"]:
-            for child in node["children"]:
-                rows.extend(extract_paths(child, current_path))
-        else:
-            # Nodo hoja
-            rows.append({"path": current_path, "value": node.get("value", 0)})
-        return rows
+        labels.append(node_id)
+        parents.append(parent)
+        values.append(value)
+        hover_text = f"ID: {node_id}<br>Valor: {value:,.2f} €"
+        hover_texts.append(hover_text)
 
-    flat_rows = []
-    for root in tree_structure:
-        flat_rows.extend(extract_paths(root))
+        for child in node.get('children', []):
+            process_node(child, node_id)
 
-    df = pd.DataFrame(flat_rows)
+    # Procesar el árbol recursivamente
+    process_node(tree_structure)
 
-    fig = px.treemap(
-        df,
-        path=['path'],
-        values='value',
-        title=title
+    # Crear la figura de treemap
+    fig = go.Figure(go.Treemap(
+        labels=labels,
+        parents=parents,
+        values=values,
+        hovertext=hover_texts,
+        hoverinfo="text",
+        textinfo="label+value",
+        marker=dict(
+            colorscale='Blues',
+            cmid=0
+        ),
+        pathbar=dict(
+            visible=True
+        )
+    ))
+
+    # Configurar el layout
+    fig.update_layout(
+        title=title,
+        margin=dict(t=50, l=25, r=25, b=25),
+        height=600,
+        font=dict(
+            family="Arial, sans-serif",
+            size=12
+        )
     )
-    fig.update_layout(margin=dict(t=40, l=0, r=0, b=0))
+
     return fig
+
 
 def debug_tree_json(tree_structure):
     """
     Imprime la estructura del árbol en formato JSON con indentación
     """
-    pass
+    print("\n===== ESTRUCTURA JSON DEL ÁRBOL =====")
+    print(json.dumps(tree_structure, indent=2, ensure_ascii=False))
+    print("=====================================\n")
 
 
 def export_tree_to_excel(tree_structure, filename="tree_structure.xlsx"):
@@ -104,57 +209,32 @@ def export_tree_to_excel(tree_structure, filename="tree_structure.xlsx"):
     
     # Exportar a Excel
     df.to_excel(filename, index=False)
+    print(f"Estructura del árbol exportada a {filename}")
 
 
 def debug_tree_structure(tree_structure, level=0, prefix=""):
     """
     Imprime la estructura jerárquica del árbol en la terminal
     """
-    pass
-
-
-def render_tree_view(data):
-    """
-    Renderiza la vista de árbol utilizando los datos de tipo T
-    """
-    from dash import html, dcc  # Asegúrate de importar si no está
-    def clean_label(label):
-        if label and ":" in label:
-            return label.split(":", 1)[1].strip()
-        return label or ""
+    if level == 0:
+        print("\n===== ESTRUCTURA DEL ÁRBOL DE COSTES =====")
+        print("ID: Descripción [Valor]")
+        print("----------------------------------------")
     
-    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
-    if not tree_data:
-        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    # Imprimir el nodo actual
+    item_id = tree_structure.get('itm_id', 'root')
+    description = tree_structure.get('description', '')
+    value = tree_structure.get('value', 0)
     
-    # Procesamos los datos para convertirlos en estructura de árbol
-    tree_cards = []
-    for row in tree_data:
-        if not row.get("DATACONTENTS"):
-            continue
-        
-        tree_structure = row.get("DATACONTENTS", [])
-        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
-        
-        fig = create_treemap_figure(tree_structure, title="")
-        card = html.Div([
-            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
-            html.Div([
-                dcc.Graph(figure=fig, id='treemap-graph', config={'displayModeBar': False})
-            ], style={'padding': '15px'})
-        ], style={
-            'margin': '12px',
-            'border': '1px solid #dee2e6',
-            'borderRadius': '6px',
-            'backgroundColor': '#ffffff',
-            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-            'width': '800px',
-            'display': 'inline-block',
-            'verticalAlign': 'top'
-        })
-        tree_cards.append(card)
+    # Crear indentación según el nivel
+    indent = "  " * level
     
-    return html.Div([
-        html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'}),
-        html.Div(id='node-info-modal', style={'display': 'none'})  # Contenedor para el modal
-    ])
+    # Imprimir información del nodo
+    print(f"{indent}{prefix}{item_id}: {description} [{value:,.2f} €]")
+    
+    # Procesar hijos recursivamente
+    for i, child in enumerate(tree_structure.get('children', [])):
+        is_last = i == len(tree_structure.get('children', [])) - 1
+        new_prefix = "└── " if is_last else "├── "
+        child_prefix = "    " if is_last else "│   "
+        debug_tree_structure(child, level + 1, new_prefix)
