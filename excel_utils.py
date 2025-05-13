@@ -136,3 +136,23 @@ def procesar_datos_arbol(items):
             else:
                 result[column] = None
     return result
+
+
+def extraer_itmids_hoja(tree_structure):
+    """
+    Extrae todos los ITMID de los nodos hoja (sin hijos y valor distinto de 0) de una estructura de árbol.
+    """
+    itmids = []
+    def recorrer(nodo):
+        if not nodo.get("children") and nodo.get("value", 0) != 0:
+            itmids.append(str(nodo.get("itm_id")))
+        for hijo in nodo.get("children", []):
+            recorrer(hijo)
+    recorrer(tree_structure)
+    return itmids
+
+def filtrar_fasg5_por_itmids(fasg5_data, itmids):
+    """
+    Filtra la lista F_Asg5 dejando solo los registros cuyo ITMID está en la lista de itmids.
+    """
+    return [row for row in fasg5_data if str(row.get("ITMID")) in itmids]

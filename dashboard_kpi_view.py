@@ -188,12 +188,12 @@ def create_kpi_view(data):
         return html.Div("No se encontraron datos KPI para mostrar", style={'padding': '20px', 'textAlign': 'center'})
     
     return html.Div([
-        html.H3("Vista de KPIs", style={
-            'textAlign': 'center', 
-            'marginBottom': '25px',
-            'color': '#2c3e50',
-            'fontWeight': '600'
-        }),
+        # html.H3("Vista de KPIs", style={
+        #     'textAlign': 'center', 
+        #     'marginBottom': '25px',
+        #     'color': '#2c3e50',
+        #     'fontWeight': '600'
+        # }),
         html.Div(kpi_cards, style={
             'display': 'flex',
             'flexWrap': 'wrap',

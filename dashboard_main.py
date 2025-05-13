@@ -22,13 +22,7 @@ import pandas as pd
 from dash_utils import check_and_kill_process_on_port, reserve_port
 from dashboard_kpi_view import create_kpi_view as kpi_view_external
 from dashboard_historic_view import create_historic_view as historic_view_external
-
-# Importar módulos propios
-try:
-    from dashboard_tree_view import create_tree_view
-except ImportError as e:
-    print(f"Error al importar módulos: {e}")
-    sys.exit(1)
+from dashboard_tree_view import create_treemap_figure, render_tree_view
 
 # Variable global para controlar el estado de la aplicación
 app_running = True
@@ -93,131 +87,18 @@ def wait_for_server(port, timeout=30):
 
 def load_dashboard_data():
     """
-    Carga los datos reales desde Excel para el dashboard
+    Carga los datos reales desde Excel para el dashboard.
+    Si falla, muestra el error y no intenta cargar datos simulados.
     """
     try:
-        # Importar el módulo para extraer datos de Excel
         from excel_main import main as extract_excel_data
-        
-        # Cargar datos reales desde Excel
-        return extract_excel_data()
-    except ImportError as e:
-        print(f"Error al importar el módulo excel_main: {e}")
-        print("Usando datos simulados como respaldo...")
-        return create_mock_data()
-
-def create_mock_data():
-    """
-    Crea datos simulados para el dashboard
-    """
-    # Datos simulados para KPIs
-    kpi_data = [
-        {
-            "CIA": "CIA1",
-            "PRJID": "31199",  # Cambiado de "PRJ1" a "31199"
-            "ROW": "1: Ingresos",
-            "COLUMN": "1: Actual",
-            "DATATYPE": "K",
-            "DATACONTENTS": {
-                "KPREV": 100000,
-                "PDTE": 50000,
-                "REALPREV": 0.75,
-                "PPTOPREV": 0.80
-            }
-        },
-        {
-            "CIA": "CIA1",
-            "PRJID": "31200",  # Añadido proyecto 31200
-            "ROW": "2: Gastos",
-            "COLUMN": "1: Actual",
-            "DATATYPE": "K",
-            "DATACONTENTS": {
-                "KPREV": -80000,
-                "PDTE": -30000,
-                "REALPREV": 0.65,
-                "PPTOPREV": 0.70
-            }
-        }
-    ]
-    
-    # Datos simulados para históricos
-    historic_data = [
-        {
-            "CIA": "CIA1",
-            "PRJID": "PRJ1",
-            "ROW": "1: Ingresos",
-            "COLUMN": "1: Actual",
-            "DATATYPE": "H",
-            "DATACONTENTS": [
-                {"WKS": "2023.01", "WKS_DATE": "2023-01-08", "WKS_SERIAL": 44934, "PPTO": 10000, "REAL": 9500, "HPREV": 9800},
-                {"WKS": "2023.02", "WKS_DATE": "2023-01-15", "WKS_SERIAL": 44941, "PPTO": 12000, "REAL": 11800, "HPREV": 12100},
-                {"WKS": "2023.03", "WKS_DATE": "2023-01-22", "WKS_SERIAL": 44948, "PPTO": 13000, "REAL": 13200, "HPREV": 13500}
-            ]
-        },
-        {
-            "CIA": "CIA1",
-            "PRJID": "PRJ1",
-            "ROW": "2: Gastos",
-            "COLUMN": "1: Actual",
-            "DATATYPE": "H",
-            "DATACONTENTS": [
-                {"WKS": "2023.01", "WKS_DATE": "2023-01-08", "WKS_SERIAL": 44934, "PPTO": -8000, "REAL": -7800, "HPREV": -7900},
-                {"WKS": "2023.02", "WKS_DATE": "2023-01-15", "WKS_SERIAL": 44941, "PPTO": -9000, "REAL": -9200, "HPREV": -9100},
-                {"WKS": "2023.03", "WKS_DATE": "2023-01-22", "WKS_SERIAL": 44948, "PPTO": -10000, "REAL": -9800, "HPREV": -10200}
-            ]
-        }
-    ]
-    
-    # Datos simulados para árbol de costes
-    tree_data = [
-        {
-            "CIA": "CIA1",
-            "PRJID": "31199",  # Cambiado de "PRJ1" a "31199"
-            "ROW": "3: Estructura de Costes",
-            "COLUMN": "1: Actual",
-            "DATATYPE": "T",
-            "DATACONTENTS": [
-                {"itm_id": "1000", "parent_id": None, "description": "Costes Directos", "value": 750000},
-                {"itm_id": "1100", "parent_id": "1000", "description": "Materiales", "value": 350000},
-                {"itm_id": "1110", "parent_id": "1100", "description": "Hormigón", "value": 120000},
-                {"itm_id": "1120", "parent_id": "1100", "description": "Acero", "value": 95000},
-                {"itm_id": "1130", "parent_id": "1100", "description": "Madera", "value": 45000},
-                {"itm_id": "1140", "parent_id": "1100", "description": "Otros materiales", "value": 90000},
-                {"itm_id": "1200", "parent_id": "1000", "description": "Mano de obra", "value": 280000},
-                {"itm_id": "1210", "parent_id": "1200", "description": "Albañilería", "value": 120000},
-                {"itm_id": "1220", "parent_id": "1200", "description": "Electricidad", "value": 60000},
-                {"itm_id": "1230", "parent_id": "1200", "description": "Fontanería", "value": 50000},
-                {"itm_id": "1240", "parent_id": "1200", "description": "Acabados", "value": 50000},
-                {"itm_id": "1300", "parent_id": "1000", "description": "Maquinaria", "value": 120000},
-                {"itm_id": "2000", "parent_id": None, "description": "Costes Indirectos", "value": 250000},
-                {"itm_id": "2100", "parent_id": "2000", "description": "Gestión", "value": 100000},
-                {"itm_id": "2200", "parent_id": "2000", "description": "Seguros", "value": 50000},
-                {"itm_id": "2300", "parent_id": "2000", "description": "Licencias", "value": 30000},
-                {"itm_id": "2400", "parent_id": "2000", "description": "Otros gastos", "value": 70000}
-            ]
-        },
-        {
-            "CIA": "CIA1",
-            "PRJID": "31200",  # Añadido proyecto 31200
-            "ROW": "3: Estructura de Costes",
-            "COLUMN": "1: Actual",
-            "DATATYPE": "T",
-            "DATACONTENTS": [
-                {"itm_id": "1000", "parent_id": None, "description": "Costes Directos", "value": 800000},
-                {"itm_id": "1100", "parent_id": "1000", "description": "Materiales", "value": 400000},
-                {"itm_id": "1110", "parent_id": "1100", "description": "Hormigón", "value": 150000},
-                {"itm_id": "1120", "parent_id": "1100", "description": "Acero", "value": 120000},
-                {"itm_id": "1130", "parent_id": "1100", "description": "Madera", "value": 50000},
-                {"itm_id": "1140", "parent_id": "1100", "description": "Otros materiales", "value": 80000},
-                {"itm_id": "1200", "parent_id": "1000", "description": "Mano de obra", "value": 300000},
-                {"itm_id": "1300", "parent_id": "1000", "description": "Maquinaria", "value": 100000},
-                {"itm_id": "2000", "parent_id": None, "description": "Costes Indirectos", "value": 200000}
-            ]
-        }
-    ]
-    
-    # Combinar todos los datos
-    return kpi_data + historic_data + tree_data
+        datos_dashboard, fasg5_filtrados = extract_excel_data()
+        global fasg5_data_filtrados
+        fasg5_data_filtrados = fasg5_filtrados
+        return datos_dashboard
+    except Exception as e:
+        print(f"Error al importar o ejecutar excel_main: {e}")
+        raise RuntimeError("Error crítico al cargar los datos reales. Revise excel_main.") from e
 
 def create_layout():
     data = load_dashboard_data()
@@ -259,6 +140,51 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 # Set the layout of the app
 app.layout = create_layout()
 
+def render_tree_view(data):
+    """
+    Renderiza la vista de árbol utilizando los datos de tipo T
+    """
+    def clean_label(label):
+        if label and ":" in label:
+            return label.split(":", 1)[1].strip()
+        return label or ""
+    
+    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
+    if not tree_data:
+        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    
+    # Procesamos los datos para convertirlos en estructura de árbol
+    tree_cards = []
+    for row in tree_data:
+        if not row.get("DATACONTENTS"):
+            continue
+        
+        tree_structure = row.get("DATACONTENTS", [])
+        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
+        
+        fig = create_treemap_figure(tree_structure, title="")
+        card = html.Div([
+            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
+            html.Div([
+                dcc.Graph(figure=fig, id='treemap-graph', config={'displayModeBar': False})
+            ], style={'padding': '15px'})
+        ], style={
+            'margin': '12px',
+            'border': '1px solid #dee2e6',
+            'borderRadius': '6px',
+            'backgroundColor': '#ffffff',
+            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
+            'width': '800px',
+            'display': 'inline-block',
+            'verticalAlign': 'top'
+        })
+        tree_cards.append(card)
+    
+    return html.Div([
+        html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'}),
+        html.Div(id='node-info-modal', style={'display': 'none'})  # Contenedor para el modal
+    ])
+
 def init_callbacks(app):
     """
     Inicializa los callbacks principales del dashboard
@@ -289,7 +215,7 @@ def init_callbacks(app):
         elif view_type == 'historic':
             return historic_view_external(data), ""
         else:  # view_type == 'tree'
-            return create_tree_view(data), ""
+            return render_tree_view(data), ""
 
     @app.callback(
         Output('close-trigger', 'children'),
@@ -300,6 +226,116 @@ def init_callbacks(app):
         if n_clicks:
             stop_server()
         return ''
+
+    @app.callback(
+        Output('node-info-modal', 'style'),
+        [Input('treemap-graph', 'clickData')],
+        [State('node-info-modal', 'style')]
+    )
+    def show_node_info(click_data, current_style):
+        if not click_data:
+            return {'display': 'none'}
+        
+        # Obtener el ID del punto seleccionado y verificar si es un nodo hoja
+        point = click_data['points'][0]
+        customdata = point.get('customdata', '')
+        
+        if not customdata or 'Nodo hoja' not in customdata:
+            return {'display': 'none'}
+        
+        # Es un nodo hoja, mostrar el modal
+        return {
+            'position': 'fixed',
+            'top': '0',
+            'left': '0',
+            'width': '100%',
+            'height': '100%',
+            'backgroundColor': 'rgba(0,0,0,0.5)',
+            'display': 'flex',
+            'alignItems': 'center',
+            'justifyContent': 'center',
+            'zIndex': '1000'
+        }
+    
+    @app.callback(
+        Output('node-info-modal', 'children'),
+        [Input('treemap-graph', 'clickData')],
+        [State('cia-filter', 'value'),
+         State('prjid-filter', 'value')]
+    )
+    def update_node_info(click_data, cia, prjid):
+        if not click_data:
+            return []
+        
+        # Obtener el ID del punto seleccionado
+        point = click_data['points'][0]
+        node_id = point.get('id', '')
+        label = point.get('label', '')
+        value = point.get('value', 0)
+        customdata = point.get('customdata', '')
+        
+        if not customdata or 'Nodo hoja' not in customdata:
+            return []
+        
+        # Obtener información filtrada de fasg5_data_filtrados si está disponible
+        filtered_info = []
+        if 'fasg5_data_filtrados' in globals() and fasg5_data_filtrados:
+            # Filtrar por CIA, PRJID y el ID del nodo
+            for item in fasg5_data_filtrados:
+                if (not cia or str(item.get('CIA', '')) == str(cia)) and \
+                   (not prjid or str(item.get('PRJID', '')) == str(prjid)) and \
+                   str(item.get('itm_id', '')) == str(node_id):
+                    filtered_info.append(item)
+        
+        # Crear tabla con la información filtrada
+        table_rows = []
+        if filtered_info:
+            for item in filtered_info:
+                for key, value in item.items():
+                    if key not in ['CIA', 'PRJID', 'itm_id']:
+                        table_rows.append(html.Tr([
+                            html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
+                            html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
+                        ]))
+        
+        # Crear el contenido del modal
+        return html.Div([
+            html.Div([
+                html.H4(f"Detalles del Nodo: {label}", style={'color': '#2c3e50', 'marginBottom': '15px'}),
+                html.Hr(),
+                html.P(f"Valor: {value:,.2f} €", style={'fontSize': '16px', 'marginBottom': '15px'}),
+                
+                # Tabla con información filtrada
+                html.Div([
+                    html.Table(
+                        [html.Tbody(table_rows)],
+                        style={'width': '100%', 'borderCollapse': 'collapse'}
+                    ) if table_rows else html.P("No hay información adicional disponible para este nodo.")
+                ], style={'maxHeight': '300px', 'overflowY': 'auto', 'marginBottom': '15px'}),
+                
+                html.Button("Cerrar", id="close-modal", n_clicks=0, 
+                           style={'marginTop': '15px', 'backgroundColor': '#3498db', 'color': 'white', 
+                                 'border': 'none', 'padding': '10px 20px', 'borderRadius': '5px', 'cursor': 'pointer'})
+            ], style={
+                'backgroundColor': 'white',
+                'padding': '20px',
+                'borderRadius': '5px',
+                'boxShadow': '0 4px 8px rgba(0,0,0,0.2)',
+                'maxWidth': '500px',
+                'margin': '0 auto'
+            })
+        ])
+    
+    @app.callback(
+        Output('node-info-modal', 'style', allow_duplicate=True),
+        [Input('close-modal', 'n_clicks')],
+        [State('node-info-modal', 'style')],
+        prevent_initial_call=True
+    )
+    def close_modal(n_clicks, current_style):
+        if n_clicks:
+            return {'display': 'none'}
+        return current_style
 
 def stop_server():
     """
@@ -321,79 +357,7 @@ def stop_server():
     print("Cerrando el proceso Dash...")
     os._exit(0)
 
-def create_tree_view(data):
-    """
-    Crea la vista de árbol de costes para datos tipo T
-    """
-    from dashboard_tree_view import create_treemap_figure
-    def clean_label(label):
-        if label and ":" in label:
-            return label.split(":", 1)[1].strip()
-        return label or ""
-    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
-    if not tree_data:
-        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
-    # Procesamos los datos para convertirlos en estructura de árbol
-    tree_cards = []
-    for row in tree_data:
-        if not row.get("DATACONTENTS"):
-            continue
-        tree_structure = row.get("DATACONTENTS", {})
-        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
-        fig = create_treemap_figure(tree_structure, title="")
-        card = html.Div([
-            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
-            html.Div([
-                dcc.Graph(figure=fig, config={'displayModeBar': False})
-            ], style={'padding': '15px'})
-        ], style={
-            'margin': '12px',
-            'border': '1px solid #dee2e6',
-            'borderRadius': '6px',
-            'backgroundColor': '#ffffff',
-            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
-            'width': '800px',
-            'display': 'inline-block',
-            'verticalAlign': 'top'
-        })
-        tree_cards.append(card)
-    return html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'})
-
-def build_tree_structure(tree_items):
-    """
-    Construye una estructura jerárquica a partir de una lista plana de elementos de árbol
-    """
-    # Crear diccionario para mapear ID a nodo
-    nodes_by_id = {}
-    root = {"children": []}
-    
-    # Primera pasada: crear todos los nodos
-    for item in tree_items:
-        item_id = item.get("itm_id")
-        if item_id:
-            nodes_by_id[item_id] = {
-                "itm_id": item_id,
-                "value": item.get("value", 0),
-                "description": item.get("description", ""),
-                "children": []
-            }
-    
-    # Segunda pasada: establecer relaciones padre-hijo
-    for item in tree_items:
-        item_id = item.get("itm_id")
-        parent_id = item.get("parent_id")
-        
-        if item_id and item_id in nodes_by_id:
-            node = nodes_by_id[item_id]
-            
-            # Si tiene padre, añadirlo como hijo
-            if parent_id and parent_id in nodes_by_id:
-                nodes_by_id[parent_id]["children"].append(node)
-            else:
-                # Si no tiene padre o el padre no existe, añadirlo a la raíz
-                root["children"].append(node)
-    
-    return root
+# Eliminar toda la función create_mock_data
 
 def main():
     """

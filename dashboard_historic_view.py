@@ -142,12 +142,12 @@ def create_historic_view(data):
     if not historic_cards:
         return html.Div("No se encontraron datos históricos para mostrar", style={'padding': '20px', 'textAlign': 'center'})
     return html.Div([
-        html.H3("Vista Histórica", style={
-            'textAlign': 'center',
-            'marginBottom': '25px',
-            'color': '#2c3e50',
-            'fontWeight': '600'
-        }),
+        # html.H3("Vista Histórica", style={
+        #     'textAlign': 'center',
+        #     'marginBottom': '25px',
+        #     'color': '#2c3e50',
+        #     'fontWeight': '600'
+        # }),
         html.Div(historic_cards, style={
             'display': 'block',
             'padding': '10px'

@@ -8,6 +8,7 @@ import sys
 import pandas as pd
 import datetime
 from excel_utils import extract_tree_data, procesar_datos_arbol
+from excel_utils import extraer_itmids_hoja, filtrar_fasg5_por_itmids
 
 # Valores hardcodeados del Excel y sus hojas
 EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/Tchart_V06.xlsm"
@@ -25,7 +26,7 @@ def wks_to_date(wks):
         wks_str = str(wks).replace(',', '').replace(' ', '').strip()
         if '.' in wks_str:
             year, week = wks_str.split('.', 1)
-            year = int(year)
+            year = int(year)  # CORREGIDO: Usar year en lugar de wks_str
             week = int(week)
             date = datetime.date.fromisocalendar(year, week, 7)  # 7 = domingo
         elif wks_str.isdigit() and len(wks_str) == 4:
@@ -258,6 +259,23 @@ def comparar_resultados_finales(result):
     solo_kpi = kpi_keys - tree_keys
     solo_tree = tree_keys - kpi_keys
 
+def extract_itm_data(excel_path, sheet_name="F_Asg5"):
+    """
+    Extrae datos de la tabla F_Asg5 (datos de items).
+    """
+    try:
+        df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={
+            'CIA': str,
+            'PRJID': str,
+            'itm_id': str  # Aseguramos que itm_id sea string para comparaciones consistentes
+        })
+        
+        # Convertir a lista de diccionarios
+        return df.to_dict(orient="records")
+    except Exception as e:
+        print(f"Error al extraer datos de {sheet_name}: {e}")
+        return []
+
 def main():
     """
     Función principal que extrae y procesa los datos del Excel
@@ -310,7 +328,60 @@ def main():
     # Ordenar el resultado final por las mismas claves y DATATYPE
     result.sort(key=lambda r: (str(r["CIA"]), str(r["PRJID"]), str(r["ROW"]), str(r["COLUMN"]), r["DATATYPE"]))
     comparar_resultados_finales(result)
-    return result
+    
+    # Procesar datos para F_Asg5 (ahora llamada itm_data)
+    fasg5_filtrados_por_cia_prjid = {}
+    
+    # Extraer datos de F_Asg5
+    itm_data = extract_itm_data(EXCEL_PATH)
+    
+    # Crear un diccionario para almacenar las estructuras de árbol por CIA+PRJID
+    arbol_cia_prjid = {}
+    
+    # Agrupar los datos de árbol por CIA+PRJID
+    for item in result:
+        if item["DATATYPE"] == "T":
+            key = (item["CIA"], item["PRJID"])
+            if key not in arbol_cia_prjid:
+                arbol_cia_prjid[key] = item["DATACONTENTS"]
+    
+    # Para cada combinación CIA+PRJID, filtrar los datos de F_Asg5
+    for key, tree in arbol_cia_prjid.items():
+        cia, prjid = key
+        # Extraer los IDs de los nodos hoja del árbol
+        itmids_hoja = extraer_itmids_hoja(tree)
+        # Filtrar los datos de F_Asg5 por los IDs de los nodos hoja
+        filtrados = [
+            item for item in itm_data 
+            if str(item.get("CIA", "")) == str(cia) and 
+               str(item.get("PRJID", "")) == str(prjid) and 
+               str(item.get("itm_id", "")) in itmids_hoja
+        ]
+        fasg5_filtrados_por_cia_prjid[key] = filtrados
+    
+    # Devolver ambos valores: los datos del dashboard y los datos filtrados de F_Asg5
+    return result, fasg5_filtrados_por_cia_prjid
+
+    # Supón que tienes:
+    # - arbol_cia_prjid: estructura de árbol por cada combinación CIA+PRJID (de F_Asg3)
+    # - fasg5_data: lista de diccionarios de F_Asg5
+    
+    # Ejemplo de integración:
+    fasg5_filtrados_por_cia_prjid = {}
+    for key, tree in arbol_cia_prjid.items():
+        itmids_hoja = extraer_itmids_hoja(tree)
+        fasg5_filtrados = filtrar_fasg5_por_itmids(fasg5_data, itmids_hoja)
+        fasg5_filtrados_por_cia_prjid[key] = fasg5_filtrados
+    
+    # Al final de la función, asegúrate de devolver dos valores:
+    # 1. Los datos del dashboard (como ya lo hace)
+    # 2. Los datos filtrados de F_Asg5
+    
+    # Si ya tienes los datos filtrados de F_Asg5:
+    return datos_dashboard, fasg5_filtrados_por_cia_prjid
+    
+    # Si no tienes los datos filtrados, devuelve un diccionario vacío como segundo valor:
+    # return datos_dashboard, {}
 
 if __name__ == "__main__":
     main()
