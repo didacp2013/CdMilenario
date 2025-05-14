@@ -11,7 +11,7 @@ from excel_utils import extract_tree_data, procesar_datos_arbol
 from excel_utils import extraer_itmids_hoja, filtrar_fasg5_por_itmids
 
 # Valores hardcodeados del Excel y sus hojas
-EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/Tchart_V06.xlsm"
+EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/DataKHT_V06.xlsm"
 HISTORIC_SHEET = "FrmBB_2"
 KPI_SHEET = "FrmBB_3"
 TREE_SHEET = "F_Asg3"  # Corregido: F_Asg3 en lugar de FrmBB_4

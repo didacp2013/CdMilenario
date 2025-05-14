@@ -22,7 +22,7 @@ import pandas as pd
 from dash_utils import check_and_kill_process_on_port, reserve_port
 from dashboard_kpi_view import create_kpi_view as kpi_view_external
 from dashboard_historic_view import create_historic_view as historic_view_external
-from dashboard_tree_view import create_treemap_figure, create_tree_view
+from dashboard_tree_view import create_tree_view
 
 # Variable global para controlar el estado de la aplicación
 app_running = True
@@ -102,8 +102,25 @@ def load_dashboard_data():
 
 def create_layout():
     data = load_dashboard_data()
-    cia_values = sorted(list(set(row["CIA"] for row in data)))
-    prjid_values = sorted(list(set(row["PRJID"] for row in data)))
+    # Asegurarnos de que los datos son listas de diccionarios
+    if not isinstance(data, list):
+        data = []
+    
+    # Extraer valores únicos de CIA y PRJID de manera segura
+    cia_values = []
+    prjid_values = []
+    for row in data:
+        if isinstance(row, dict):
+            cia = row.get('CIA')
+            prjid = row.get('PRJID')
+            if cia and str(cia) not in cia_values:
+                cia_values.append(str(cia))
+            if prjid and str(prjid) not in prjid_values:
+                prjid_values.append(str(prjid))
+    
+    cia_values.sort()
+    prjid_values.sort()
+    
     return html.Div([
         html.Div([
             html.H1("Dashboard de Seguimiento", style={
@@ -114,7 +131,6 @@ def create_layout():
             dcc.Dropdown(id='prjid-filter', options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], placeholder='Selecciona un PRJID', style={'width': '220px'}),
             html.Button("Actualizar datos", id="apply-filters", n_clicks=0, style={"marginLeft": "20px", "marginRight": "20px", "height": "40px"}),
             html.Button("Cerrar Dashboard", id="btn-close", n_clicks=0, style={"backgroundColor": "#dc3545", "color": "white", "height": "40px"}),
-            # Reemplazar el botón de alternancia por un grupo de botones de opción
             html.Div([
                 dcc.RadioItems(
                     id='view-selector',
@@ -123,7 +139,7 @@ def create_layout():
                         {'label': 'HISTÓRICO', 'value': 'historic'},
                         {'label': 'ÁRBOL', 'value': 'tree'}
                     ],
-                    value='kpi',  # Valor predeterminado
+                    value='kpi',
                     labelStyle={'display': 'inline-block', 'marginRight': '10px', 'fontWeight': 'bold'},
                     style={'display': 'flex', 'justifyContent': 'center'}
                 )
@@ -156,21 +172,38 @@ def init_callbacks(app):
     )
     def update_dashboard_content(apply_n_clicks, cia, prjid, view_type):
         data = load_dashboard_data()
+        if not isinstance(data, list):
+            data = []
+        
         # Filtrar por CIA y PRJID si están seleccionados
-        if cia:
-            data = [row for row in data if str(row.get('CIA', '')) == str(cia)]
-        if prjid:
-            data = [row for row in data if str(row.get('PRJID', '')) == str(prjid)]
+        filtered_data = []
+        for row in data:
+            if isinstance(row, dict):
+                row_cia = str(row.get('CIA', ''))
+                row_prjid = str(row.get('PRJID', ''))
+                if (not cia or row_cia == str(cia)) and (not prjid or row_prjid == str(prjid)):
+                    filtered_data.append(row)
+        
         # Si no hay datos para la combinación, informar al usuario
-        if not data:
+        if not filtered_data:
             return None, "No hay datos para la combinación seleccionada. Cambie su selección."
+        
         # Determinar vista según el valor del selector
         if view_type == 'kpi':
-            return kpi_view_external(data), ""
+            return kpi_view_external(filtered_data), ""
         elif view_type == 'historic':
-            return historic_view_external(data), ""
+            return historic_view_external(filtered_data), ""
         else:  # view_type == 'tree'
-            return create_tree_view(data), ""
+            # Filtrar los datos ITMFRM por CIA y PRJID si están seleccionados
+            filtered_fasg5 = []
+            if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
+                for item in fasg5_data_filtrados:
+                    if isinstance(item, dict):
+                        item_cia = str(item.get('CIA', ''))
+                        item_prjid = str(item.get('PRJID', ''))
+                        if (not cia or item_cia == str(cia)) and (not prjid or item_prjid == str(prjid)):
+                            filtered_fasg5.append(item)
+            return create_tree_view(filtered_data, filtered_fasg5), ""
 
     @app.callback(
         Output('close-trigger', 'children'),
@@ -234,24 +267,29 @@ def init_callbacks(app):
         
         # Obtener información filtrada de fasg5_data_filtrados si está disponible
         filtered_info = []
-        if 'fasg5_data_filtrados' in globals() and fasg5_data_filtrados:
+        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
             # Filtrar por CIA, PRJID y el ID del nodo
             for item in fasg5_data_filtrados:
-                if (not cia or str(item.get('CIA', '')) == str(cia)) and \
-                   (not prjid or str(item.get('PRJID', '')) == str(prjid)) and \
-                   str(item.get('itm_id', '')) == str(node_id):
-                    filtered_info.append(item)
+                if isinstance(item, dict):
+                    item_cia = str(item.get('CIA', ''))
+                    item_prjid = str(item.get('PRJID', ''))
+                    item_id = str(item.get('itm_id', ''))
+                    if (not cia or item_cia == str(cia)) and \
+                       (not prjid or item_prjid == str(prjid)) and \
+                       item_id == str(node_id):
+                        filtered_info.append(item)
         
         # Crear tabla con la información filtrada
         table_rows = []
         if filtered_info:
             for item in filtered_info:
-                for key, value in item.items():
-                    if key not in ['CIA', 'PRJID', 'itm_id']:
-                        table_rows.append(html.Tr([
-                            html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
-                            html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
-                        ]))
+                if isinstance(item, dict):
+                    for key, value in item.items():
+                        if key not in ['CIA', 'PRJID', 'itm_id']:
+                            table_rows.append(html.Tr([
+                                html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
+                                html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
+                            ]))
         
         # Crear el contenido del modal
         return html.Div([
@@ -312,8 +350,6 @@ def stop_server():
     print("Cerrando el proceso Dash...")
     os._exit(0)
 
-# Eliminar toda la función create_mock_data
-
 def main():
     """
     Función principal que inicia la aplicación del dashboard
@@ -324,24 +360,14 @@ def main():
         check_and_kill_process_on_port(PORT)
         reserve_port(PORT)
 
-        print("Cargando datos simulados...")  # Debug
-        # Cargar datos simulados
-        data = load_dashboard_data()
-        if not data:
-            raise ValueError("No se pudieron cargar los datos simulados")
-        print("Datos cargados correctamente")  # Debug
-        print(f"Total celdas: {len(data)}")  # Debug
-
         # Crear la aplicación Dash
         app = Dash(__name__, 
                   external_stylesheets=[dbc.themes.BOOTSTRAP],
                   suppress_callback_exceptions=True)
         
-        print("Configurando layout...")  # Debug
         # Configurar el layout
         app.layout = create_layout()
         
-        print("Inicializando callbacks...")  # Debug
         # Inicializar callbacks
         init_callbacks(app)
 
