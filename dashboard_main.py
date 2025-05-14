@@ -24,6 +24,7 @@ from dashboard_kpi_view import create_kpi_view as kpi_view_external
 from dashboard_historic_view import create_historic_view as historic_view_external
 from dashboard_tree_view import create_tree_view
 from dash import callback_context, MATCH
+import re
 
 # Variable global para controlar el estado de la aplicación
 app_running = True
@@ -351,62 +352,93 @@ def init_callbacks(app):
          Output({'type': 'popup-body-datos-i', 'index': MATCH}, 'children')],
         [Input({'type': 'incomings-btn', 'index': MATCH}, 'n_clicks'),
          Input({'type': 'close-popup-datos-i', 'index': MATCH}, 'n_clicks')],
-        [State({'type': 'treemap-graph', 'index': MATCH}, 'figure'),
+        [State({'type': 'treemap-store', 'index': MATCH}, 'data'),
          State('cia-filter', 'value'),
          State('prjid-filter', 'value'),
          State({'type': 'popup-modal-datos-i', 'index': MATCH}, 'is_open')],
         prevent_initial_call=True
     )
-    def show_itmfrm_popup(btn_open, btn_close, figure, cia, prjid, is_open):
+    def show_itmfrm_popup(btn_open, btn_close, selected_node_id, cia, prjid, is_open):
         ctx = callback_context
         trigger = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
         if trigger and 'close-popup-datos-i' in trigger:
             return False, None
         if not (trigger and 'incomings-btn' in trigger):
             return is_open, None
-        # Lógica: comprobar si hay un solo nodo hoja visible (color rojo)
-        if not figure or 'data' not in figure or not figure['data']:
-            return is_open, "No hay información del gráfico."
-        treemap_data = figure['data'][0]
-        ids = treemap_data.get('ids', [])
-        labels = treemap_data.get('labels', [])
-        colors = treemap_data.get('marker', {}).get('colors', [])
-        values = treemap_data.get('values', [])
-        print(f"DEBUG ids: {ids}")
-        print(f"DEBUG labels: {labels}")
-        print(f"DEBUG colors: {colors}")
-        leaf_indices = [i for i, c in enumerate(colors) if c == 'red']
-        print(f"DEBUG leaf_indices (color=='red'): {leaf_indices}")
-        if len(leaf_indices) != 1:
-            return True, f"Debes aislar un único nodo hoja (rojo) para ver sus Incomings.\nids={ids}\nlabels={labels}\ncolors={colors}\nleaf_indices={leaf_indices}"
-        node_id = ids[leaf_indices[0]]
+        # Si no hay nodo hoja seleccionado
+        if not selected_node_id:
+            return True, "Por favor, selecciona un nodo hoja (rojo) haciendo click en él antes de pulsar 'Incomings'."
+        node_id = selected_node_id
+        # Extraer ITMID: texto entre el segundo '-' y el primer ' ('
+        parts = str(node_id).split('-')
+        if len(parts) >= 3:
+            itmid = parts[2].split(' (')[0].strip()
+        else:
+            itmid = str(node_id)
         # Buscar datos ITMFRM reales para ese nodo
         filtered_info = []
-        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
-            for item in fasg5_data_filtrados:
-                if isinstance(item, dict):
-                    item_cia = str(item.get('CIA', ''))
-                    item_prjid = str(item.get('PRJID', ''))
-                    item_id = str(item.get('itm_id', ''))
-                    if (not cia or item_cia == str(cia)) and \
-                       (not prjid or item_prjid == str(prjid)) and \
-                       item_id == str(node_id):
-                        filtered_info.append(item)
+        key = (str(cia).strip(), str(prjid).strip())
+        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, dict):
+            if key in fasg5_data_filtrados:
+                for item in fasg5_data_filtrados[key]:
+                    # Puede ser dict o tupla, intentamos ambos
+                    if isinstance(item, dict):
+                        item_id = str(item.get('ITMID', '')).strip().upper()
+                        if item_id == itmid.strip().upper():
+                            filtered_info.append(item)
+                    elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                        # Asumimos ITMID es el primer campo, ITMFRM el segundo
+                        item_id = str(item[0]).strip().upper()
+                        if item_id == itmid.strip().upper():
+                            filtered_info.append({'ITMID': item[0], 'ITMFRM': item[1]})
         if not filtered_info:
-            return True, "No hay datos ITMFRM para este nodo."
+            return True, f"No hay datos ITMFRM para este nodo (ITMID extraído: {itmid})."
         # Crear tabla con la información filtrada
         table_rows = []
         for item in filtered_info:
-            for key, value in item.items():
-                if key not in ['CIA', 'PRJID', 'itm_id']:
+            for key_, value in item.items():
+                if key_ not in ['CIA', 'PRJID']:
                     table_rows.append(html.Tr([
-                        html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
+                        html.Td(key_, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
                         html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
                     ]))
         table = html.Table([
             html.Tbody(table_rows)
         ], style={'width': '100%', 'borderCollapse': 'collapse'})
         return True, table
+
+    # Callback global para guardar el id del nodo hoja clicado en el treemap
+    @app.callback(
+        Output({'type': 'treemap-store', 'index': MATCH}, 'data'),
+        [Input({'type': 'treemap-graph', 'index': MATCH}, 'clickData')],
+        [State({'type': 'treemap-store', 'index': MATCH}, 'data'),
+         State({'type': 'treemap-graph', 'index': MATCH}, 'figure')],
+        prevent_initial_call=True
+    )
+    def store_leaf_node(clickData, current_data, figure):
+        print(f"DEBUG: Callback store_leaf_node activado. clickData={clickData}")
+        if not clickData or 'points' not in clickData or not clickData['points']:
+            print("DEBUG: No clickData válido. No se guarda nada.")
+            return None
+        point = clickData['points'][0]
+        node_id = point.get('id', None)
+        print(f"DEBUG: Nodo clicado id={node_id}")
+        # Comprobar si es hoja (color rojo)
+        idx = None
+        if 'ids' in figure['data'][0]:
+            try:
+                idx = figure['data'][0]['ids'].index(node_id)
+            except Exception:
+                idx = None
+        is_leaf = False
+        if idx is not None and 'marker' in figure['data'][0] and 'colors' in figure['data'][0]['marker']:
+            is_leaf = figure['data'][0]['marker']['colors'][idx] == 'red'
+        print(f"DEBUG: is_leaf={is_leaf}")
+        if is_leaf:
+            print(f"DEBUG: Guardando id en store: {node_id}")
+            return node_id
+        print("DEBUG: Nodo no es hoja. No se guarda nada.")
+        return None
 
 def stop_server():
     """

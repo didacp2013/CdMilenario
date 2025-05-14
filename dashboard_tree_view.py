@@ -101,6 +101,9 @@ def create_tree_view(data, fasg5_filtrados=None, app=None):
         html.Div(id='tree-view-container'),
         html.Div(id='debug-output', style={'margin': '20px', 'padding': '10px', 'border': '1px solid red', 'backgroundColor': '#fff3cd'})
     ])
+
+    # Registrar callback para guardar el id del nodo hoja clicado
+    # (El callback se registrará globalmente en dashboard_main.py)
     return layout
 
 def export_tree_to_excel(tree_structure, filename="tree_structure.xlsx"):
