@@ -9,52 +9,98 @@ from dash import html, dcc
 import json
 import pandas as pd
 import dash
-from dash import html, dcc, Input, Output, State
+from dash import html, dcc, Input, Output, State, MATCH
 import dash_bootstrap_components as dbc
+from dash_utils import register_itmfrm_popup_callback
 
-def create_tree_view(data, fasg5_filtrados=None):
+def create_tree_view(data, fasg5_filtrados=None, app=None):
     """
     Crea la vista de árbol con los datos proporcionados.
     fasg5_filtrados: datos filtrados de F_Asg5 (tipo I)
+    app: instancia de Dash para registrar el callback
     """
-    # Crear el layout base
+    print("DEBUG: Iniciando create_tree_view")
+    print(f"DEBUG: app es None? {app is None}")
+    print(f"DEBUG: fasg5_filtrados es None? {fasg5_filtrados is None}")
+    
+    tree_data = [row for row in data if row.get("DATATYPE") == "T"]
+    if not tree_data:
+        return html.Div("No hay datos de árbol de costes disponibles", style={'text-align': 'center', 'margin-top': '20px'})
+    
+    tree_cards = []
+    for idx, row in enumerate(tree_data):
+        if not row.get("DATACONTENTS"):
+            continue
+        tree_structure = row.get("DATACONTENTS", {})
+        def clean_label(label):
+            if label and ":" in label:
+                return label.split(":", 1)[1].strip()
+            return label or ""
+        title = f"{clean_label(row.get('ROW', ''))} - {clean_label(row.get('COLUMN', ''))}"
+        
+        def flatten_tree(node, parent_id=""):
+            nodes = []
+            node_id = node.get("id", "")
+            value = node.get("value", 0)
+            label = node_id
+            children = node.get("children", [])
+            nodes.append({
+                "id": node_id,
+                "parent": parent_id,
+                "value": value,
+                "label": label,
+                "is_leaf": not children
+            })
+            for child in children:
+                nodes.extend(flatten_tree(child, node_id))
+            return nodes
+        flat_nodes = flatten_tree(tree_structure)
+        ids = [n["id"] for n in flat_nodes]
+        parents = [n["parent"] for n in flat_nodes]
+        values = [n["value"] for n in flat_nodes]
+        labels = [n["label"] for n in flat_nodes]
+        colors = ['red' if n["is_leaf"] else '#4a6fa5' for n in flat_nodes]
+        fig = go.Figure(go.Treemap(
+            ids=ids,
+            parents=parents,
+            values=values,
+            labels=labels,
+            branchvalues="total",
+            textinfo="label+value",
+            marker=dict(colors=colors)
+        ))
+        fig.update_layout(margin=dict(t=40, l=0, r=0, b=0))
+        card = html.Div([
+            html.H5(title, style={'margin': '0', 'color': '#fff', 'fontWeight': '600', 'padding': '12px 15px', 'borderRadius': '5px 5px 0 0', 'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'}),
+            html.Div([
+                dcc.Graph(figure=fig, id={'type': 'treemap-graph', 'index': idx}, config={'displayModeBar': False}),
+                dbc.Button("Incomings", id={'type': 'incomings-btn', 'index': idx}, color="primary", style={"marginTop": "10px"}),
+                dcc.Store(id={'type': 'treemap-store', 'index': idx}),
+                dbc.Modal([
+                    dbc.ModalHeader("Detalle ITMFRM"),
+                    dbc.ModalBody(id={'type': 'popup-body-datos-i', 'index': idx}),
+                    dbc.ModalFooter(
+                        dbc.Button("Cerrar", id={'type': 'close-popup-datos-i', 'index': idx}, className="ml-auto")
+                    ),
+                ], id={'type': 'popup-modal-datos-i', 'index': idx}, is_open=False),
+            ], style={'padding': '15px'})
+        ], style={
+            'margin': '12px',
+            'border': '1px solid #dee2e6',
+            'borderRadius': '6px',
+            'backgroundColor': '#ffffff',
+            'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
+            'width': '800px',
+            'display': 'inline-block',
+            'verticalAlign': 'top'
+        })
+        tree_cards.append(card)
+    
     layout = html.Div([
-        dcc.Store(id='tree-data-store'),
-        # --- INICIO: Callback popup desactivado temporalmente ---
-        # dbc.Modal([
-        #     dbc.ModalHeader("Detalles del Item"),
-        #     dbc.ModalBody(id='item-details-content'),
-        #     dbc.ModalFooter(
-        #         dbc.Button("Cerrar", id="close-item-modal", className="ms-auto", n_clicks=0)
-        #     ),
-        # ], id="item-modal", is_open=False),
-        html.Div(id='tree-view-container')
+        html.Div(tree_cards, style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'center', 'gap': '20px', 'padding': '20px'}),
+        html.Div(id='tree-view-container'),
+        html.Div(id='debug-output', style={'margin': '20px', 'padding': '10px', 'border': '1px solid red', 'backgroundColor': '#fff3cd'})
     ])
-
-    # --- INICIO: Callback popup desactivado temporalmente ---
-    # @dash.callback(
-    #     [Output('item-modal', 'is_open'),
-    #      Output('item-details-content', 'children')],
-    #     [Input('treemap-graph', 'clickData')],
-    #     [State('item-modal', 'is_open'),
-    #      State('cia-filter', 'value'),
-    #      State('prjid-filter', 'value')]
-    # )
-    # def toggle_item_modal(click_data, is_open, cia, prjid):
-    #     ...
-    # --- FIN: Callback popup desactivado temporalmente ---
-
-    # --- INICIO: Callback cerrar modal desactivado temporalmente ---
-    # @dash.callback(
-    #     Output('item-modal', 'is_open', allow_duplicate=True),
-    #     [Input('close-item-modal', 'n_clicks')],
-    #     [State('item-modal', 'is_open')],
-    #     prevent_initial_call=True
-    # )
-    # def close_modal(n_clicks, is_open):
-    #     ...
-    # --- FIN: Callback cerrar modal desactivado temporalmente ---
-
     return layout
 
 def export_tree_to_excel(tree_structure, filename="tree_structure.xlsx"):
