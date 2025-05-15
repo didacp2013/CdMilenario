@@ -267,9 +267,10 @@ def extract_itm_data(excel_path, sheet_name="F_Asg5"):
         df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={
             'CIA': str,
             'PRJID': str,
-            'itm_id': str  # Aseguramos que itm_id sea string para comparaciones consistentes
+            'ITMID': str  # Usar exactamente el nombre de la columna en Excel
         })
-        
+        # Print temporal para verificar las claves
+        print("Primeros 3 registros de F_Asg5 extraídos:", df.head(3).to_dict(orient="records"))
         # Convertir a lista de diccionarios
         return df.to_dict(orient="records")
     except Exception as e:
@@ -280,14 +281,21 @@ def process_fasg5_data(itm_data, tree_data):
     """
     Procesa los datos de F_Asg5 (tipo I) de forma independiente.
     Devuelve una lista de diccionarios con los campos CIA, PRJID, ITMID e ITMFRM
-    para los ITMID que están en los nodos hoja válidos del árbol.
+    para los ITMID que están en los nodos hoja del árbol.
     """
+    from excel_utils import extraer_itmids_hoja
+    def clean_itmid(itmid):
+        """Limpia el ITMID: elimina caracteres no imprimibles, hace trim y convierte a mayúsculas"""
+        if not isinstance(itmid, str):
+            itmid = str(itmid)
+        return ''.join(c for c in itmid if c.isprintable()).strip().upper()
+
     # Crear un diccionario para acceso rápido a ITMFRM
     itmfrm_dict = {}
     for item in itm_data:
         cia = str(item.get('CIA', '')).strip()
         prjid = str(item.get('PRJID', '')).strip()
-        itmid = str(item.get('ITMID', '')).strip().upper()
+        itmid = clean_itmid(item.get('ITMID', ''))
         itmfrm = item.get('ITMFRM', '')
         key = (cia, prjid)
         if key not in itmfrm_dict:
@@ -296,51 +304,114 @@ def process_fasg5_data(itm_data, tree_data):
 
     # Lista para almacenar los datos filtrados
     fasg5_filtrados = []
-    
+
+    # Agrupar todos los árboles de tipo T por (CIA, PRJID)
+    from collections import defaultdict
+    arboles_por_cia_prjid = defaultdict(list)
+    for node in tree_data:
+        cia = str(node.get('CIA', '')).strip()
+        prjid = str(node.get('PRJID', '')).strip()
+        if node.get('DATATYPE', '') == 'T' and 'DATACONTENTS' in node:
+            arboles_por_cia_prjid[(cia, prjid)].append(node['DATACONTENTS'])
+
     # Procesar cada combinación CIA-PRJID
     for key, itmids in itmfrm_dict.items():
         cia, prjid = key
-        
-        # Encontrar el nodo correspondiente en tree_data
-        tree_node = None
-        for node in tree_data:
-            if str(node.get('CIA', '')).strip() == cia and str(node.get('PRJID', '')).strip() == prjid:
-                tree_node = node
-                break
-        
-        if tree_node and 'DATACONTENTS' in tree_node:
-            # Extraer ITMID válidos del árbol
-            valid_itmids = extraer_itmids_hoja(tree_node['DATACONTENTS'])
-            
-            # Añadir a la lista solo los ITMID que están en el árbol
-            for itmid, itmfrm in itmids.items():
-                if itmid in valid_itmids:
-                    fasg5_filtrados.append({
-                        'CIA': cia,
-                        'PRJID': prjid,
-                        'ITMID': itmid,
-                        'ITMFRM': itmfrm
-                    })
-    
+        print(f"\nProcesando combinación CIA={cia}, PRJID={prjid}")
+        # Extraer todos los ITMID hoja de todos los árboles de tipo T para esta combinación
+        valid_itmids = set()
+        for arbol in arboles_por_cia_prjid.get((cia, prjid), []):
+            itmids_hoja = extraer_itmids_hoja(arbol)
+            valid_itmids.update([clean_itmid(itm) for itm in itmids_hoja])
+        print(f"Total de ITMID hoja extraídos: {len(valid_itmids)}")
+        # Añadir a la lista solo los ITMID que están en el árbol
+        for itmid, itmfrm in itmids.items():
+            if itmid in valid_itmids:
+                fasg5_filtrados.append({
+                    'CIA': cia,
+                    'PRJID': prjid,
+                    'ITMID': itmid,
+                    'ITMFRM': itmfrm
+                })
     return fasg5_filtrados
 
 def main():
     """
-    Función principal que extrae y estructura los datos del Excel.
+    Función principal que extrae y procesa los datos del Excel
     """
-    # Extraer datos del Excel
-    itm_data = extract_itm_data('DataKHT_V06.xlsm')
-    tree_data = extract_tree_data('DataKHT_V06.xlsm', TREE_SHEET)
-    kpi_data = extract_kpi_data('DataKHT_V06.xlsm', KPI_SHEET)
-    historic_data = extract_historic_data('DataKHT_V06.xlsm', HISTORIC_SHEET)
+    # Extraer datos
+    historic_data = extract_historic_data(EXCEL_PATH, HISTORIC_SHEET)
+    kpi_data = extract_kpi_data(EXCEL_PATH, KPI_SHEET)
+    tree_data = extract_tree_data(EXCEL_PATH, TREE_SHEET)
     
     # Estructurar datos K+H+T
-    datos_dashboard = structure_data(historic_data, kpi_data, tree_data)
+    structured_data = structure_data(historic_data, kpi_data, tree_data)
+    
+    # Convertir a lista plana
+    result = []
+    for cia, cia_data in structured_data.items():
+        for prjid, prjid_data in cia_data.items():
+            for row, row_data in prjid_data.items():
+                for column, col_data in row_data.items():
+                    # Verificar KPI
+                    if "K" in col_data and col_data["K"] is not None:
+                        result.append({
+                            "CIA": cia,
+                            "PRJID": prjid,
+                            "ROW": row,
+                            "COLUMN": column,
+                            "DATATYPE": "K",
+                            "DATACONTENTS": col_data["K"]
+                        })
+                    # Verificar Histórico
+                    if "H" in col_data and col_data["H"] is not None:
+                        result.append({
+                            "CIA": cia,
+                            "PRJID": prjid,
+                            "ROW": row,
+                            "COLUMN": column,
+                            "DATATYPE": "H",
+                            "DATACONTENTS": col_data["H"]
+                        })
+                    # Verificar Árbol
+                    if "T" in col_data and col_data["T"] is not None:
+                        result.append({
+                            "CIA": cia,
+                            "PRJID": prjid,
+                            "ROW": row,
+                            "COLUMN": column,
+                            "DATATYPE": "T",
+                            "DATACONTENTS": col_data["T"]
+                        })
+    
+    # Ordenar el resultado final por las mismas claves y DATATYPE
+    result.sort(key=lambda r: (str(r["CIA"]), str(r["PRJID"]), str(r["ROW"]), str(r["COLUMN"]), r["DATATYPE"]))
+    comparar_resultados_finales(result)
     
     # Procesar datos F_Asg5 (tipo I) de forma independiente
+    itm_data = extract_itm_data(EXCEL_PATH)
     fasg5_filtrados = process_fasg5_data(itm_data, tree_data)
     
-    return datos_dashboard, fasg5_filtrados
+    # Verificación temporal de la estructura
+    print("\nVerificación de estructura de datos_dashboard:")
+    if result:
+        # Buscar el primer elemento con DATATYPE == "T"
+        t_element = next((item for item in result if item["DATATYPE"] == "T"), None)
+        if t_element:
+            print("\nElemento con DATATYPE == 'T':")
+            print("Estructura básica:")
+            print({k: v for k, v in t_element.items() if k != "DATACONTENTS"})
+            print("\nEstructura del árbol (primer nivel):")
+            if isinstance(t_element["DATACONTENTS"], dict):
+                print("Campos del nodo raíz:")
+                print(list(t_element["DATACONTENTS"].keys()))
+                if "children" in t_element["DATACONTENTS"]:
+                    print("\nNúmero de hijos del nodo raíz:", len(t_element["DATACONTENTS"]["children"]))
+                    if t_element["DATACONTENTS"]["children"]:
+                        print("\nEstructura del primer hijo:")
+                        print(list(t_element["DATACONTENTS"]["children"][0].keys()))
+    
+    return result, fasg5_filtrados
 
 if __name__ == "__main__":
     main()

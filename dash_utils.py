@@ -2,7 +2,7 @@ import socket
 import subprocess
 import os
 import signal
-from dash import callback, Output, Input, State, html
+from dash import callback, Output, Input, State, html, no_update
 import dash_bootstrap_components as dbc
 
 def check_and_kill_process_on_port(port, verbose=False):
@@ -121,3 +121,70 @@ def register_itmfrm_popup_callback(app, fasg5_filtrados):
         if n_clicks:
             return False
         return is_open
+
+def show_itmfrm_popup(n_clicks, id, cia, prjid, trigger, fasg5_filtrados):
+    """
+    Muestra un popup con la información ITMFRM para el nodo seleccionado.
+    """
+    print("\nDEBUG: show_itmfrm_popup llamado")
+    print(f"DEBUG: id={id}")
+    print(f"DEBUG: cia={cia}, prjid={prjid}")
+    print(f"DEBUG: trigger={trigger}")
+    
+    # Mostrar muestra filtrada de fasg5_filtrados para CIA='Sp' y PRJID='31199'
+    print("\nMUESTRA DE fasg5_filtrados (solo CIA='Sp' y PRJID='31199'):")
+    muestra = [item for item in fasg5_filtrados if str(item.get('CIA', '')) == 'Sp' and str(item.get('PRJID', '')) == '31199']
+    for i, item in enumerate(muestra[:10]):
+        print(f"  {i}: {item}")
+    print(f"Total elementos en muestra filtrada: {len(muestra)}")
+    print(f"Total elementos en fasg5_filtrados: {len(fasg5_filtrados)}")
+    
+    if not id or not cia or not prjid:
+        return no_update
+    
+    # Extraer ITMID desde id (tercer campo, antes del paréntesis)
+    parts = id.split('-')
+    if len(parts) >= 3:
+        itmin = parts[2].strip()
+        itmid = itmin.split(' (')[0].strip()
+        print(f"DEBUG: itmin extraído={itmin}")
+        print(f"DEBUG: itmid extraído={itmid}")
+        
+        # Filtrar por CIA, PRJID e ITMID
+        filtered_info = [
+            item for item in fasg5_filtrados
+            if str(item.get('CIA', '')).strip() == str(cia).strip() and
+               str(item.get('PRJID', '')).strip() == str(prjid).strip() and
+               str(item.get('ITMID', '')).strip() == str(itmid).strip()
+        ]
+        
+        print("\nDEBUG: Valores que se están comparando:")
+        print(f"DEBUG: CIA buscada: '{cia}'")
+        print(f"DEBUG: PRJID buscado: '{prjid}'")
+        print(f"DEBUG: ITMID buscado: '{itmid}'")
+        print(f"DEBUG: filtered_info encontrados={len(filtered_info)}")
+        
+        if not filtered_info:
+            print("\nDEBUG: No se encontraron coincidencias. Valores en los primeros 3 items:")
+            for i, item in enumerate(fasg5_filtrados[:3]):
+                print(f"  {i}: CIA='{item.get('CIA')}', PRJID='{item.get('PRJID')}', ITMID='{item.get('ITMID')}'")
+        
+        if filtered_info:
+            itmfrm = filtered_info[0].get('ITMFRM', 'No disponible')
+            return html.Div([
+                html.H4("Información ITMFRM"),
+                html.P(f"ITMID: {itmid}"),
+                html.P(f"ITMFRM: {itmfrm}"),
+                html.Button("Cerrar", id="close-popup-datos-i", n_clicks=0)
+            ], style={
+                'position': 'fixed',
+                'top': '50%',
+                'left': '50%',
+                'transform': 'translate(-50%, -50%)',
+                'background-color': 'white',
+                'padding': '20px',
+                'border': '1px solid black',
+                'z-index': '1000'
+            })
+    
+    return no_update

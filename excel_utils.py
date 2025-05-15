@@ -140,28 +140,47 @@ def procesar_datos_arbol(items):
 
 def extraer_itmids_hoja(tree_structure):
     """
-    Extrae todos los ITMID de los nodos hoja (sin hijos y valor distinto de 0) de una estructura de árbol.
+    Extrae todos los ITMID de los nodos hoja (sin hijos) de una estructura de árbol.
     El id tiene el formato LEVEL-NODO-ITMIN(ITMTYP) y necesitamos extraer solo el ITMID.
     """
+    print("\nDEBUG: Iniciando extraer_itmids_hoja")
+    print(f"DEBUG: Tipo de tree_structure: {type(tree_structure)}")
+    if isinstance(tree_structure, dict):
+        print(f"DEBUG: Claves del tree_structure: {tree_structure.keys()}")
+    
     itmids = []
     def recorrer(nodo):
         if isinstance(nodo, list):
+            print(f"DEBUG: Nodo es una lista con {len(nodo)} elementos")
             for n in nodo:
                 recorrer(n)
             return
-        if not nodo.get("children") and nodo.get("value", 0) != 0:
+        print(f"DEBUG: Procesando nodo: {nodo.get('id', 'sin id')}")
+        print(f"DEBUG: Tiene hijos? {bool(nodo.get('children'))}")
+        if not nodo.get("children"):  # Solo verificamos que no tenga hijos, como en el dashboard
             # Extraer el ITMIN del id (formato: LEVEL-NODO-ITMIN(ITMTYP))
             itmin = str(nodo.get("id", "")).split("-")[2]
             # Extraer solo el ITMID del ITMIN (formato: ITMID(ITMTYP))
             itmid = itmin.split("(")[0].strip()
+            print(f"DEBUG: Nodo hoja encontrado - ITMID: {itmid}")
             itmids.append(itmid)
         for hijo in nodo.get("children", []):
             recorrer(hijo)
     recorrer(tree_structure)
+    print(f"DEBUG: Total ITMIDs extraídos: {len(itmids)}")
+    print(f"DEBUG: ITMIDs: {itmids}")
     return itmids
 
 def filtrar_fasg5_por_itmids(fasg5_data, itmids):
     """
     Filtra la lista F_Asg5 dejando solo los registros cuyo ITMID está en la lista de itmids.
     """
-    return [row for row in fasg5_data if str(row.get("ITMID")) in itmids]
+    print("\nDEBUG: Iniciando filtrar_fasg5_por_itmids")
+    print(f"DEBUG: Número de registros en fasg5_data: {len(fasg5_data)}")
+    print(f"DEBUG: Número de ITMIDs a filtrar: {len(itmids)}")
+    print(f"DEBUG: Primeros 5 ITMIDs a filtrar: {itmids[:5]}")
+    print(f"DEBUG: Primeros 5 ITMIDs en fasg5_data: {[str(row.get('ITMID')) for row in fasg5_data[:5]]}")
+    
+    filtered_data = [row for row in fasg5_data if str(row.get("ITMID")) in itmids]
+    print(f"DEBUG: Número de registros filtrados: {len(filtered_data)}")
+    return filtered_data

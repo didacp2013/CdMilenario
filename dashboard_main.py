@@ -14,7 +14,7 @@ import socket
 import psutil
 import subprocess
 import signal
-from dash import Dash, html, dcc, callback, Output, Input, State, dash_table
+from dash import Dash, html, dcc, callback, Output, Input, State, dash_table, no_update
 import dash
 import dash_bootstrap_components as dbc
 import random
@@ -29,6 +29,10 @@ import re
 # Variable global para controlar el estado de la aplicación
 app_running = True
 server_ready = threading.Event()
+
+# Variables globales
+datos_dashboard = []
+fasg5_filtrados = []
 
 def find_free_port(start_port=8050, max_attempts=100):
     """
@@ -94,9 +98,8 @@ def load_dashboard_data():
     """
     try:
         from excel_main import main as extract_excel_data
+        global datos_dashboard, fasg5_filtrados
         datos_dashboard, fasg5_filtrados = extract_excel_data()
-        global fasg5_data_filtrados
-        fasg5_data_filtrados = fasg5_filtrados
         return datos_dashboard
     except Exception as e:
         print(f"Error al importar o ejecutar excel_main: {e}")
@@ -104,8 +107,13 @@ def load_dashboard_data():
 
 def create_layout():
     data = load_dashboard_data()
+    print("\nDEBUG: Datos recibidos en create_layout:")
+    print(f"Tipo de data: {type(data)}")
+    print(f"Longitud de data: {len(data) if isinstance(data, list) else 'N/A'}")
+    
     # Asegurarnos de que los datos son listas de diccionarios
     if not isinstance(data, list):
+        print("ERROR: data no es una lista")
         data = []
     
     # Extraer valores únicos de CIA y PRJID de manera segura
@@ -115,13 +123,22 @@ def create_layout():
         if isinstance(row, dict):
             cia = row.get('CIA')
             prjid = row.get('PRJID')
+            print(f"DEBUG: Procesando fila - CIA: {cia}, PRJID: {prjid}")
             if cia and str(cia) not in cia_values:
                 cia_values.append(str(cia))
             if prjid and str(prjid) not in prjid_values:
                 prjid_values.append(str(prjid))
     
+    print(f"\nDEBUG: Valores únicos encontrados:")
+    print(f"CIA values: {cia_values}")
+    print(f"PRJID values: {prjid_values}")
+    
     cia_values.sort()
     prjid_values.sort()
+    
+    # Seleccionar el primer valor por defecto si hay valores disponibles
+    default_cia = cia_values[0] if cia_values else None
+    default_prjid = prjid_values[0] if prjid_values else None
     
     return html.Div([
         html.Div([
@@ -129,8 +146,8 @@ def create_layout():
                 'color': '#2c3e50', 'textAlign': 'center', 'marginBottom': '10px', 'fontWeight': '700'})
         ], style={'padding': '20px 0', 'borderBottom': '2px solid #4a6fa5', 'marginBottom': '30px', 'background': 'linear-gradient(to right, #f8f9fa, #e9ecef, #f8f9fa)'}),
         html.Div([
-            dcc.Dropdown(id='cia-filter', options=[{'label': cia, 'value': cia} for cia in cia_values], placeholder='Selecciona una CIA', style={'width': '220px'}),
-            dcc.Dropdown(id='prjid-filter', options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], placeholder='Selecciona un PRJID', style={'width': '220px'}),
+            dcc.Dropdown(id='cia-filter', options=[{'label': cia, 'value': cia} for cia in cia_values], value=default_cia, placeholder='Selecciona una CIA', style={'width': '220px'}),
+            dcc.Dropdown(id='prjid-filter', options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], value=default_prjid, placeholder='Selecciona un PRJID', style={'width': '220px'}),
             html.Button("Actualizar datos", id="apply-filters", n_clicks=0, style={"marginLeft": "20px", "marginRight": "20px", "height": "40px"}),
             html.Button("Cerrar Dashboard", id="btn-close", n_clicks=0, style={"backgroundColor": "#dc3545", "color": "white", "height": "40px"}),
             html.Div([
@@ -199,9 +216,9 @@ def init_callbacks(app):
         else:  # view_type == 'tree'
             # Filtrar los datos ITMFRM por CIA y PRJID si están seleccionados
             filtered_fasg5 = []
-            if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
+            if 'fasg5_filtrados' in globals() and isinstance(fasg5_filtrados, list):
                 filtered_fasg5 = [
-                    item for item in fasg5_data_filtrados
+                    item for item in fasg5_filtrados
                     if (not cia or str(item.get('CIA', '')).strip() == str(cia).strip()) and
                        (not prjid or str(item.get('PRJID', '')).strip() == str(prjid).strip())
                 ]
@@ -281,11 +298,11 @@ def init_callbacks(app):
         if not customdata or 'Nodo hoja' not in customdata:
             return []
         
-        # Obtener información filtrada de fasg5_data_filtrados si está disponible
+        # Obtener información filtrada de fasg5_filtrados si está disponible
         filtered_info = []
-        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
+        if 'fasg5_filtrados' in globals() and isinstance(fasg5_filtrados, list):
             # Filtrar por CIA, PRJID y el ID del nodo
-            for item in fasg5_data_filtrados:
+            for item in fasg5_filtrados:
                 if isinstance(item, dict):
                     item_cia = str(item.get('CIA', ''))
                     item_prjid = str(item.get('PRJID', ''))
@@ -359,45 +376,34 @@ def init_callbacks(app):
         prevent_initial_call=True
     )
     def show_itmfrm_popup(btn_open, btn_close, selected_node_id, cia, prjid, is_open):
-        ctx = callback_context
-        trigger = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
-        if trigger and 'close-popup-datos-i' in trigger:
-            return False, None
-        if not (trigger and 'incomings-btn' in trigger):
-            return is_open, None
-        # Si no hay nodo hoja seleccionado
+        """
+        Muestra un popup con la información ITMFRM para el nodo seleccionado.
+        """
+        print("\nDEBUG: show_itmfrm_popup callback llamado")
+        print(f"DEBUG: btn_open={btn_open}, btn_close={btn_close}")
+        print(f"DEBUG: selected_node_id={selected_node_id}")
+        print(f"DEBUG: cia={cia}, prjid={prjid}")
+        print(f"DEBUG: is_open={is_open}")
+        
+        # Si se hace clic en el botón de cerrar, cerrar el popup
+        if btn_close:
+            return False, no_update
+        
+        # Si el popup ya está abierto, no hacer nada
+        if is_open:
+            return no_update, no_update
+        
+        # Si no hay nodo seleccionado, no hacer nada
         if not selected_node_id:
-            return True, "Por favor, selecciona un nodo hoja (rojo) haciendo click en él antes de pulsar 'Incomings'."
-        node_id = selected_node_id
-        # Extraer ITMID: texto entre el segundo '-' y el primer ' ('
-        parts = str(node_id).split('-')
-        if len(parts) >= 3:
-            itmid = parts[2].split(' (')[0].strip()
-        else:
-            itmid = str(node_id)
-        # Buscar datos ITMFRM reales para ese nodo
-        filtered_info = []
-        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
-            filtered_info = [
-                item for item in fasg5_data_filtrados
-                if str(item.get('CIA', '')).strip() == str(cia).strip() and
-                   str(item.get('PRJID', '')).strip() == str(prjid).strip() and
-                   str(item.get('ITMID', '')).strip().upper() == itmid.strip().upper()
-            ]
-        if not filtered_info:
-            return True, f"No hay datos ITMFRM para este nodo (ITMID extraído: {itmid})."
-        # Crear tabla con la información filtrada
-        table_rows = []
-        for item in filtered_info:
-            for key, value in item.items():
-                table_rows.append(html.Tr([
-                    html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
-                    html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
-                ]))
-        table = html.Table([
-            html.Tbody(table_rows)
-        ], style={'width': '100%', 'borderCollapse': 'collapse'})
-        return True, table
+            return no_update, no_update
+        
+        # Obtener el trigger que activó el callback
+        trigger = callback_context.triggered[0]['prop_id'].split('.')[0]
+        print(f"DEBUG: trigger={trigger}")
+        
+        # Llamar a la función show_itmfrm_popup de dash_utils
+        from dash_utils import show_itmfrm_popup
+        return show_itmfrm_popup(btn_open, selected_node_id, cia, prjid, trigger, fasg5_filtrados)
 
     # Callback global para guardar el id del nodo hoja clicado en el treemap
     @app.callback(
