@@ -200,12 +200,12 @@ def init_callbacks(app):
             # Filtrar los datos ITMFRM por CIA y PRJID si están seleccionados
             filtered_fasg5 = []
             if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
-                for item in fasg5_data_filtrados:
-                    if isinstance(item, dict):
-                        item_cia = str(item.get('CIA', ''))
-                        item_prjid = str(item.get('PRJID', ''))
-                        if (not cia or item_cia == str(cia)) and (not prjid or item_prjid == str(prjid)):
-                            filtered_fasg5.append(item)
+                filtered_fasg5 = [
+                    item for item in fasg5_data_filtrados
+                    if (not cia or str(item.get('CIA', '')).strip() == str(cia).strip()) and
+                       (not prjid or str(item.get('PRJID', '')).strip() == str(prjid).strip())
+                ]
+            
             print("DEBUG: Llamando a create_tree_view con app")
             print(f"DEBUG: app es None? {app is None}")
             print(f"DEBUG: filtered_fasg5 es None? {filtered_fasg5 is None}")
@@ -377,31 +377,23 @@ def init_callbacks(app):
             itmid = str(node_id)
         # Buscar datos ITMFRM reales para ese nodo
         filtered_info = []
-        key = (str(cia).strip(), str(prjid).strip())
-        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, dict):
-            if key in fasg5_data_filtrados:
-                for item in fasg5_data_filtrados[key]:
-                    # Puede ser dict o tupla, intentamos ambos
-                    if isinstance(item, dict):
-                        item_id = str(item.get('ITMID', '')).strip().upper()
-                        if item_id == itmid.strip().upper():
-                            filtered_info.append(item)
-                    elif isinstance(item, (list, tuple)) and len(item) >= 2:
-                        # Asumimos ITMID es el primer campo, ITMFRM el segundo
-                        item_id = str(item[0]).strip().upper()
-                        if item_id == itmid.strip().upper():
-                            filtered_info.append({'ITMID': item[0], 'ITMFRM': item[1]})
+        if 'fasg5_data_filtrados' in globals() and isinstance(fasg5_data_filtrados, list):
+            filtered_info = [
+                item for item in fasg5_data_filtrados
+                if str(item.get('CIA', '')).strip() == str(cia).strip() and
+                   str(item.get('PRJID', '')).strip() == str(prjid).strip() and
+                   str(item.get('ITMID', '')).strip().upper() == itmid.strip().upper()
+            ]
         if not filtered_info:
             return True, f"No hay datos ITMFRM para este nodo (ITMID extraído: {itmid})."
         # Crear tabla con la información filtrada
         table_rows = []
         for item in filtered_info:
-            for key_, value in item.items():
-                if key_ not in ['CIA', 'PRJID']:
-                    table_rows.append(html.Tr([
-                        html.Td(key_, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
-                        html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
-                    ]))
+            for key, value in item.items():
+                table_rows.append(html.Tr([
+                    html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
+                    html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
+                ]))
         table = html.Table([
             html.Tbody(table_rows)
         ], style={'width': '100%', 'borderCollapse': 'collapse'})

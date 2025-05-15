@@ -141,11 +141,20 @@ def procesar_datos_arbol(items):
 def extraer_itmids_hoja(tree_structure):
     """
     Extrae todos los ITMID de los nodos hoja (sin hijos y valor distinto de 0) de una estructura de árbol.
+    El id tiene el formato LEVEL-NODO-ITMIN(ITMTYP) y necesitamos extraer solo el ITMID.
     """
     itmids = []
     def recorrer(nodo):
+        if isinstance(nodo, list):
+            for n in nodo:
+                recorrer(n)
+            return
         if not nodo.get("children") and nodo.get("value", 0) != 0:
-            itmids.append(str(nodo.get("itm_id")))
+            # Extraer el ITMIN del id (formato: LEVEL-NODO-ITMIN(ITMTYP))
+            itmin = str(nodo.get("id", "")).split("-")[2]
+            # Extraer solo el ITMID del ITMIN (formato: ITMID(ITMTYP))
+            itmid = itmin.split("(")[0].strip()
+            itmids.append(itmid)
         for hijo in nodo.get("children", []):
             recorrer(hijo)
     recorrer(tree_structure)

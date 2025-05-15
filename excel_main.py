@@ -276,112 +276,71 @@ def extract_itm_data(excel_path, sheet_name="F_Asg5"):
         print(f"Error al extraer datos de {sheet_name}: {e}")
         return []
 
+def process_fasg5_data(itm_data, tree_data):
+    """
+    Procesa los datos de F_Asg5 (tipo I) de forma independiente.
+    Devuelve una lista de diccionarios con los campos CIA, PRJID, ITMID e ITMFRM
+    para los ITMID que están en los nodos hoja válidos del árbol.
+    """
+    # Crear un diccionario para acceso rápido a ITMFRM
+    itmfrm_dict = {}
+    for item in itm_data:
+        cia = str(item.get('CIA', '')).strip()
+        prjid = str(item.get('PRJID', '')).strip()
+        itmid = str(item.get('ITMID', '')).strip().upper()
+        itmfrm = item.get('ITMFRM', '')
+        key = (cia, prjid)
+        if key not in itmfrm_dict:
+            itmfrm_dict[key] = {}
+        itmfrm_dict[key][itmid] = itmfrm
+
+    # Lista para almacenar los datos filtrados
+    fasg5_filtrados = []
+    
+    # Procesar cada combinación CIA-PRJID
+    for key, itmids in itmfrm_dict.items():
+        cia, prjid = key
+        
+        # Encontrar el nodo correspondiente en tree_data
+        tree_node = None
+        for node in tree_data:
+            if str(node.get('CIA', '')).strip() == cia and str(node.get('PRJID', '')).strip() == prjid:
+                tree_node = node
+                break
+        
+        if tree_node and 'DATACONTENTS' in tree_node:
+            # Extraer ITMID válidos del árbol
+            valid_itmids = extraer_itmids_hoja(tree_node['DATACONTENTS'])
+            
+            # Añadir a la lista solo los ITMID que están en el árbol
+            for itmid, itmfrm in itmids.items():
+                if itmid in valid_itmids:
+                    fasg5_filtrados.append({
+                        'CIA': cia,
+                        'PRJID': prjid,
+                        'ITMID': itmid,
+                        'ITMFRM': itmfrm
+                    })
+    
+    return fasg5_filtrados
+
 def main():
     """
-    Función principal que extrae y procesa los datos del Excel
+    Función principal que extrae y estructura los datos del Excel.
     """
-    # Extraer datos
-    historic_data = extract_historic_data(EXCEL_PATH, HISTORIC_SHEET)
-    kpi_data = extract_kpi_data(EXCEL_PATH, KPI_SHEET)
-    tree_data = extract_tree_data(EXCEL_PATH, TREE_SHEET)
+    # Extraer datos del Excel
+    itm_data = extract_itm_data('DataKHT_V06.xlsm')
+    tree_data = extract_tree_data('DataKHT_V06.xlsm', TREE_SHEET)
+    kpi_data = extract_kpi_data('DataKHT_V06.xlsm', KPI_SHEET)
+    historic_data = extract_historic_data('DataKHT_V06.xlsm', HISTORIC_SHEET)
     
-    # Estructurar datos
-    structured_data = structure_data(historic_data, kpi_data, tree_data)
+    # Estructurar datos K+H+T
+    datos_dashboard = structure_data(historic_data, kpi_data, tree_data)
     
-    # Convertir a lista plana
-    result = []
-    for cia, cia_data in structured_data.items():
-        for prjid, prjid_data in cia_data.items():
-            for row, row_data in prjid_data.items():
-                for column, col_data in row_data.items():
-                    # Verificar KPI
-                    if "K" in col_data and col_data["K"] is not None:
-                        result.append({
-                            "CIA": cia,
-                            "PRJID": prjid,
-                            "ROW": row,
-                            "COLUMN": column,
-                            "DATATYPE": "K",
-                            "DATACONTENTS": col_data["K"]
-                        })
-                    # Verificar Histórico
-                    if "H" in col_data and col_data["H"] is not None:
-                        result.append({
-                            "CIA": cia,
-                            "PRJID": prjid,
-                            "ROW": row,
-                            "COLUMN": column,
-                            "DATATYPE": "H",
-                            "DATACONTENTS": col_data["H"]
-                        })
-                    # Verificar Árbol
-                    if "T" in col_data and col_data["T"] is not None:
-                        # El árbol ya está en formato treemap
-                        result.append({
-                            "CIA": cia,
-                            "PRJID": prjid,
-                            "ROW": row,
-                            "COLUMN": column,
-                            "DATATYPE": "T",
-                            "DATACONTENTS": col_data["T"]
-                        })
-    # Ordenar el resultado final por las mismas claves y DATATYPE
-    result.sort(key=lambda r: (str(r["CIA"]), str(r["PRJID"]), str(r["ROW"]), str(r["COLUMN"]), r["DATATYPE"]))
-    comparar_resultados_finales(result)
+    # Procesar datos F_Asg5 (tipo I) de forma independiente
+    fasg5_filtrados = process_fasg5_data(itm_data, tree_data)
     
-    # Procesar datos para F_Asg5 (ahora llamada itm_data)
-    fasg5_filtrados_por_cia_prjid = {}
-    
-    # Extraer datos de F_Asg5
-    itm_data = extract_itm_data(EXCEL_PATH)
-    
-    # Crear un diccionario para almacenar las estructuras de árbol por CIA+PRJID
-    arbol_cia_prjid = {}
-    
-    # Agrupar los datos de árbol por CIA+PRJID
-    for item in result:
-        if item["DATATYPE"] == "T":
-            key = (item["CIA"], item["PRJID"])
-            if key not in arbol_cia_prjid:
-                arbol_cia_prjid[key] = item["DATACONTENTS"]
-    
-    # Para cada combinación CIA+PRJID, filtrar los datos de F_Asg5
-    for key, tree in arbol_cia_prjid.items():
-        cia, prjid = key
-        # Extraer los IDs de los nodos hoja del árbol
-        itmids_hoja = extraer_itmids_hoja(tree)
-        # Filtrar los datos de F_Asg5 por los IDs de los nodos hoja
-        filtrados = [
-            item for item in itm_data 
-            if str(item.get("CIA", "")) == str(cia) and 
-               str(item.get("PRJID", "")) == str(prjid) and 
-               str(item.get("itm_id", "")) in itmids_hoja
-        ]
-        fasg5_filtrados_por_cia_prjid[key] = filtrados
-    
-    # Devolver ambos valores: los datos del dashboard y los datos filtrados de F_Asg5
-    return result, fasg5_filtrados_por_cia_prjid
-
-    # Supón que tienes:
-    # - arbol_cia_prjid: estructura de árbol por cada combinación CIA+PRJID (de F_Asg3)
-    # - fasg5_data: lista de diccionarios de F_Asg5
-    
-    # Ejemplo de integración:
-    fasg5_filtrados_por_cia_prjid = {}
-    for key, tree in arbol_cia_prjid.items():
-        itmids_hoja = extraer_itmids_hoja(tree)
-        fasg5_filtrados = filtrar_fasg5_por_itmids(fasg5_data, itmids_hoja)
-        fasg5_filtrados_por_cia_prjid[key] = fasg5_filtrados
-    
-    # Al final de la función, asegúrate de devolver dos valores:
-    # 1. Los datos del dashboard (como ya lo hace)
-    # 2. Los datos filtrados de F_Asg5
-    
-    # Si ya tienes los datos filtrados de F_Asg5:
-    return datos_dashboard, fasg5_filtrados_por_cia_prjid
-    
-    # Si no tienes los datos filtrados, devuelve un diccionario vacío como segundo valor:
-    # return datos_dashboard, {}
+    return datos_dashboard, fasg5_filtrados
 
 if __name__ == "__main__":
     main()

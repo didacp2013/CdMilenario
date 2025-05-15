@@ -88,12 +88,12 @@ def register_itmfrm_popup_callback(app, fasg5_filtrados):
             return is_open, []
         itmid = parts[2]
         # Buscar datos ITMFRM
-        matching_items = [
-            item for item in fasg5_filtrados
-            if (not cia or str(item.get('CIA', '')) == str(cia)) and
-               (not prjid or str(item.get('PRJID', '')) == str(prjid)) and
-               str(item.get('ITMID', '')) == str(itmid)
-        ]
+        matching_items = []
+        key = (str(cia).strip(), str(prjid).strip())
+        if isinstance(fasg5_filtrados, dict) and key in fasg5_filtrados:
+            item_data = fasg5_filtrados[key].get(itmid.strip().upper())
+            if item_data:
+                matching_items.append(item_data)
         if matching_items:
             item = matching_items[0]
             table_rows = [
@@ -101,7 +101,7 @@ def register_itmfrm_popup_callback(app, fasg5_filtrados):
                     html.Td(key, style={'fontWeight': 'bold', 'padding': '8px', 'borderBottom': '1px solid #ddd'}),
                     html.Td(str(value), style={'padding': '8px', 'borderBottom': '1px solid #ddd'})
                 ])
-                for key, value in item.items() if key not in ['CIA', 'PRJID', 'ITMID']
+                for key, value in item.items()
             ]
             return True, html.Div([
                 html.H5(f"Item ID: {itmid}"),
