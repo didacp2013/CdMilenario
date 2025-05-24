@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualización Jerárquica de Proyectos - Treemap</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #chart {
+            width: 900px;
+            height: 700px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 250px;
+            z-index: 9999;
+            color: #333;
+            transition: opacity 0.2s;
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.4;
+        }
+		
+		.breadcrumb {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            user-select: none;
+        }
+        
+        .breadcrumb span {
+            cursor: pointer;
+            color: #0066cc;
+            margin: 0 5px;
+        }
+        
+        .breadcrumb span:hover {
+            text-decoration: underline;
+        }
+        
+        h1, h2 {
+            color: #1e3a8a;
+        }
+        
+        .chart-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 15px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        
+        .file-upload {
+            background-color: #f1f5f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .file-input-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .file-input-container input {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+        }
+        
+        button:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+		
+		.tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+        
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .status-indicator {
+            display: none;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+		
+		#chartContainer {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        /* Estilo para la tabla de datos con niveles colapsables */
+        .data-table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ddd;
+        }
+        
+        .data-table th {
+            background-color: #f1f5f9;
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+            position: sticky;
+            top: 0;
+        }
+        
+        .data-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .data-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .level-row {
+            cursor: pointer;
+        }
+        
+        .level-indicator {
+            display: inline-block;
+            width: 18px;
+            text-align: center;
+            margin-right: 5px;
+        }
+        
+        .child-row {
+            display: none;
+        }
+        
+        .child-row.expanded {
+            display: table-row;
+        }
+        
+        .indent {
+            display: inline-block;
+            width: 18px;
+            margin-right: 3px;
+        }
+		
+		.depth-selector {
+            margin-bottom: 15px;
+        }
+        
+        .switch-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            gap: 10px;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #3b82f6;
+        }
+        
+        input:focus + .slider {
+            box-shadow: 0 0 1px #3b82f6;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        /* Estilo para las etiquetas de texto en el treemap */
+        .node-label {
+            font-size: 12px;
+            fill: white;
+            pointer-events: none;
+            dominant-baseline: hanging;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            #chart {
+                width: 100%;
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="chart-title">Visualización Jerárquica de Proyectos</h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="fileUpload">Cargar Archivo</div>
+            <div class="tab" data-tab="pasteData">Pegar Datos</div>
+            <div class="tab" data-tab="options">Opciones</div>
+        </div>
+		
+		<div id="tabFileUpload" class="tab-content active">
+            <h2>Cargar desde archivo TXT</h2>
+            <div class="file-upload">
+                <p>Selecciona un archivo de datos en formato TXT:</p>
+                <div class="file-input-container">
+                    <input type="file" id="fileInput" accept=".txt" />
+                    <button id="btnLoadFile">Cargar Archivo</button>
+                </div>
+                <p><small>El archivo debe incluir la estructura jerárquica de los proyectos</small></p>
+            </div>
+        </div>
+        
+        <div id="tabPasteData" class="tab-content">
+            <h2>Pegar datos manualmente</h2>
+            <p>Copia los datos y pégalos aquí:</p>
+            <textarea id="dataInput" placeholder="Pega aquí los datos tabulados"></textarea>
+            <div>
+                <button id="btnLoadSample">Cargar Datos de Ejemplo</button>
+                <button id="btnProcessData">Procesar Datos</button>
+            </div>
+        </div>
+        
+        <div id="tabOptions" class="tab-content">
+            <h2>Opciones Avanzadas</h2>
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                <h3>Visualización</h3>
+                
+                <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" id="highlightOnHover" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <span>Resaltar segmentos al pasar el ratón</span>
+                </div>
+                
+                <div class="depth-selector">
+                    <label for="maxDepth">Profundidad máxima a mostrar:</label>
+                    <select id="maxDepth">
+                        <option value="1">1 nivel</option>
+                        <option value="2">2 niveles</option>
+                        <option value="3" selected>3 niveles</option>
+                        <option value="4">4 niveles</option>
+                        <option value="5">5 niveles</option>
+                        <option value="all">Todos los niveles</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+		
+		<div id="statusIndicator" class="status-indicator"></div>
+        
+        <div id="chartContainer">
+            <div class="breadcrumb" id="breadcrumb">
+                <span data-id="root">Inicio</span>
+            </div>
+            
+            <div id="chart"></div>
+            
+            <div class="legend" id="legend"></div>
+            
+            <h3 style="margin-top: 30px;">Datos por Nivel</h3>
+            <div class="data-table-container">
+                <table id="dataTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60%;">Nombre</th>
+                            <th style="width: 15%;">Nivel</th>
+                            <th style="width: 20%;">Valor</th>
+                            <th style="width: 5%;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Se llenará dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+	
+	// Referencias a elementos DOM
+        const fileInput = document.getElementById('fileInput');
+        const btnLoadFile = document.getElementById('btnLoadFile');
+        const dataInput = document.getElementById('dataInput');
+        const btnLoadSample = document.getElementById('btnLoadSample');
+        const btnProcessData = document.getElementById('btnProcessData');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const chartContainer = document.getElementById('chartContainer');
+        const highlightOnHover = document.getElementById('highlightOnHover');
+        const maxDepth = document.getElementById('maxDepth');
+        const tooltip = document.getElementById('tooltip');
+        
+        // Variables para almacenar datos procesados
+        let currentData = null;
+        let currentNode = null; // Nodo actualmente visualizado
+        
+        // Datos de ejemplo
+        const sampleData = `Cia	Prj	Parte_Prj	Nivel	Valor	ValorAcumulado	Nivel1	Nivel2	Nivel3	Nivel4	Nivel5	Proyecto
+Sp	31199	0010	1	0.00	0.00	31199.0010 -  03 - Fabricación					Sp-31199.0010
+Sp	31199	0010	3	919.92	919.92	31199.0010 -  03 - Fabricación	    31199.0010 - Subproyecto - 919,92€	        624317.0010 (Operación) - 919,92€			Sp-31199.0010
+Sp	31199	0010	3	5099.92	5099.92	31199.0010 -  03 - Fabricación	    31199.0010 - Subproyecto - 5.099,92€	        624317.0010 (Operación) - 5.099,92€			Sp-31199.0010
+Sp	31199	0010	3	4663.84	4663.84	31199.0010 -  03 - Fabricación	    31199.0010 - Subproyecto - 4.663,84€	        624317.0010 (Operación) - 4.663,84€			Sp-31199.0010
+Sp	31199	0010	3	32839.38	32839.38	31199.0010 -  03 - Fabricación	    31199.0010 - Subproyecto - 32.839,38€	        624317.0010 (Operación) - 32.839,38€			Sp-31199.0010
+Sp	31199	0010	3	72.00	72.00	31199.0010 -  03 - Fabricación	    31199.0010 - Subproyecto - 72,00€	        66009 (Recep OC) - 72,00€			Sp-31199.0010`;
+
+// Función de debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Mostrar mensaje de estado
+        function showStatus(message, type = 'info') {
+            statusIndicator.textContent = message;
+            statusIndicator.style.display = 'block';
+            
+            if (type === 'error') {
+                statusIndicator.style.backgroundColor = '#fee2e2';
+                statusIndicator.style.borderLeftColor = '#ef4444';
+            } else if (type === 'success') {
+                statusIndicator.style.backgroundColor = '#dcfce7';
+                statusIndicator.style.borderLeftColor = '#22c55e';
+            } else {
+                statusIndicator.style.backgroundColor = '#f0f9ff';
+                statusIndicator.style.borderLeftColor = '#3b82f6';
+            }
+            
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 5000);
+        }
+
+        // Loading overlay
+        function showLoadingOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = `
+                <div class="loading-spinner"></div>
+                <p>Procesando datos...</p>
+            `;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        function hideLoadingOverlay(overlay) {
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        }
+        
+        // Formatear valores como moneda (correctamente para formato español)
+        function formatCurrency(value) {
+            if (value === undefined || value === null) return "N/A";
+            
+            // Asegurar que estamos trabajando con un número
+            const numValue = typeof value === 'string' ? parseFloat(value.replace(/\./g, '').replace(',', '.')) : value;
+            
+            if (isNaN(numValue)) return "N/A";
+            
+            // Formato con separador de miles y decimales en formato español
+            // Evitamos usar toLocaleString para mayor compatibilidad
+            let formattedValue = numValue.toFixed(2);
+            
+            // Convertir punto decimal a coma
+            formattedValue = formattedValue.replace('.', ',');
+            
+            // Añadir separador de miles
+            formattedValue = formattedValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            
+            // Añadir símbolo € al final
+            return formattedValue + ' \u20AC'; // Usamos código Unicode para el símbolo €
+        }
+        
+        // Parseador de números que maneja correctamente el formato español
+        function parseSpanishNumber(str) {
+            if (!str || typeof str !== 'string') return 0;
+            
+            // Reemplazar puntos por nada (separador de miles) y comas por puntos (separador decimal)
+            // Esto convierte valores como "1.234,56" a "1234.56" para que parseFloat funcione
+            const normalizedStr = str.replace(/\./g, '').replace(',', '.');
+            const value = parseFloat(normalizedStr);
+            
+            return isNaN(value) ? 0 : value;
+        }
+        
+        // Función para limpiar etiquetas de información monetaria
+        function cleanLabel(text) {
+            if (!text) return '';
+            // Eliminar patrones como "- 1.234,56€" o similar
+            return text.replace(/\s*-\s*[\d.,]+[\u20AC€]?/g, '').trim();
+        }
+		
+		// Función para parsear el texto de datos a formato jerárquico
+        function parseTextToHierarchy(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            
+            if (lines.length === 0) {
+                return { name: "Sin datos", children: [] };
+            }
+            
+            // Parsear encabezados
+            const header = lines[0].split('\t');
+            const ciaIndex = header.indexOf('Cia');
+            const prjIndex = header.indexOf('Prj');
+            const parteIndex = header.indexOf('Parte_Prj');
+            const nivelIndex = header.indexOf('Nivel');
+            const valorIndex = header.indexOf('Valor');
+            const valorAcumIndex = header.indexOf('ValorAcumulado');
+            const nivel1Index = header.indexOf('Nivel1');
+            const nivel2Index = header.indexOf('Nivel2');
+            const nivel3Index = header.indexOf('Nivel3');
+            const proyectoIndex = header.indexOf('Proyecto');
+
+            // Objeto para almacenar la estructura jerárquica
+            const hierarchy = {
+                name: "Proyectos",
+                children: []
+            };
+            
+            // Mapas para gestionar la jerarquía
+            const proyectoMap = new Map(); // Para proyectos (Nivel 0)
+            const nivel1Map = new Map();    // Para nivel 1
+            const nivel2Map = new Map();    // Para nivel 2
+            
+            // Procesar cada línea
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split('\t');
+                if (parts.length < 6) continue;
+                
+                // Extraer datos
+                const cia = parts[ciaIndex];
+                const prj = parts[prjIndex];
+                const parte = parts[parteIndex];
+                const nivel = parseInt(parts[nivelIndex]);
+                
+                // Parseamos correctamente los valores numéricos en formato español
+                const valor = parseSpanishNumber(parts[valorIndex]);
+                const valorAcum = parseSpanishNumber(parts[valorAcumIndex]);
+                
+                // Obtener textos completos de los niveles
+                const nivel1Full = nivel1Index !== -1 ? parts[nivel1Index]?.trim() || '' : '';
+                const nivel2Full = nivel2Index !== -1 ? parts[nivel2Index]?.trim() || '' : '';
+                const nivel3Full = nivel3Index !== -1 ? parts[nivel3Index]?.trim() || '' : '';
+                
+                // Limpiamos las etiquetas de información monetaria
+                const nivel1 = cleanLabel(nivel1Full);
+                const nivel2 = cleanLabel(nivel2Full);
+                const nivel3 = cleanLabel(nivel3Full);
+                
+                const proyecto = proyectoIndex !== -1 ? parts[proyectoIndex]?.trim() || `${cia}-${prj}.${parte}` : `${cia}-${prj}.${parte}`;
+				
+				// Clave única para este proyecto/parte
+                const proyectoKey = `${cia}-${prj}`;
+                const parteKey = `${cia}-${prj}.${parte}`;
+                
+                // Manejar según nivel
+                if (nivel === 1) {
+                    // Primer nivel (Prj + Parte)
+                    let proyectoNode = proyectoMap.get(proyectoKey);
+                    
+                    if (!proyectoNode) {
+                        // Crear el nodo para el proyecto si no existe
+                        proyectoNode = {
+                            name: prj,
+                            id: proyectoKey,
+                            children: []
+                        };
+                        proyectoMap.set(proyectoKey, proyectoNode);
+                        hierarchy.children.push(proyectoNode);
+                    }
+                    
+                    // Crear nodo para esta parte del proyecto
+                    const parteNode = {
+                        name: nivel1 || `${prj}.${parte}`,
+                        id: parteKey,
+                        nivel: nivel,
+                        value: valorAcum,
+                        children: []
+                    };
+                    
+                    proyectoNode.children.push(parteNode);
+                    nivel1Map.set(parteKey, parteNode);
+                }
+                else if (nivel === 3) {
+                    // Tercer nivel (elementos finales)
+                    // Buscar el nodo padre en nivel 1
+                    const parteNode = nivel1Map.get(parteKey);
+                    
+                    if (!parteNode) {
+                        console.warn(`No se encontró nodo de nivel 1 para: ${parteKey}`);
+                        continue;
+                    }
+                    
+                    // Si nivel2 está especificado, buscar o crear el nodo de nivel 2
+                    if (nivel2 && nivel2 !== '') {
+                        const nivel2Key = `${parteKey}-${nivel2}`;
+                        let nivel2Node = nivel2Map.get(nivel2Key);
+                        
+                        if (!nivel2Node) {
+                            nivel2Node = {
+                                name: nivel2,
+                                id: nivel2Key,
+                                nivel: 2,
+                                value: 0,
+                                children: []
+                            };
+                            nivel2Map.set(nivel2Key, nivel2Node);
+                            parteNode.children.push(nivel2Node);
+                        }
+						
+						// Crear nodo de nivel 3
+                        const nivel3Node = {
+                            name: nivel3 || `Elemento ${i}`,
+                            id: `${nivel2Key}-${i}`,
+                            nivel: nivel,
+                            value: valorAcum,
+                            children: []
+                        };
+                        
+                        nivel2Node.children.push(nivel3Node);
+                    } else {
+                        // Si no hay nivel2, añadir directamente al nivel1
+                        const nivel3Node = {
+                            name: nivel3 || `Elemento ${i}`,
+                            id: `${parteKey}-${i}`,
+                            nivel: nivel,
+                            value: valorAcum,
+                            children: []
+                        };
+                        
+                        parteNode.children.push(nivel3Node);
+                    }
+                }
+            }
+            
+            // Calcular correctamente todos los valores sumados
+            calculateHierarchyValues(hierarchy);
+            
+            console.log("Hierarchy prepared:", hierarchy);
+            return hierarchy;
+        }
+        
+        // Función para calcular sumatorios correctamente en toda la jerarquía
+        function calculateHierarchyValues(node) {
+            if (!node.children || node.children.length === 0) {
+                return node.value || 0;
+            }
+            
+            // Calcular la suma de los valores de los hijos recursivamente
+            let sum = 0;
+            for (const child of node.children) {
+                sum += calculateHierarchyValues(child);
+            }
+            
+            // Asignar el valor acumulado al nodo
+            node.value = sum;
+            
+            return node.value;
+        }
+		
+		// Procesar archivo de texto
+        function processTextData(text) {
+            const overlay = showLoadingOverlay();
+            chartContainer.style.display = 'none';
+            
+            setTimeout(() => {
+                try {
+                    currentData = parseTextToHierarchy(text);
+                    currentNode = currentData; // Inicialmente mostramos toda la jerarquía
+                    
+                    // Actualizar visualización
+                    createTreemap(currentNode);
+                    
+                    // Ahora la tabla muestra solo el primer nivel
+                    populateDataTable(currentNode);
+                    
+                    chartContainer.style.display = 'block';
+                    showStatus('Datos procesados correctamente', 'success');
+                    hideLoadingOverlay(overlay);
+                } catch (error) {
+                    console.error('Error processing data:', error);
+                    showStatus(`Error: ${error.message}`, 'error');
+                    hideLoadingOverlay(overlay);
+                }
+            }, 100);
+        }
+        
+        // Colores según el nivel jerárquico
+        const colorsByLevel = {
+            0: "#1f77b4", // Azul oscuro - Raíz
+            1: "#2ca02c", // Verde - Nivel 1 
+            2: "#ff7f0e", // Naranja - Nivel 2
+            3: "#d62728", // Rojo - Nivel 3
+            4: "#9467bd", // Púrpura - Nivel 4
+            5: "#8c564b"  // Marrón - Nivel 5
+        };
+		
+		// Función para crear el Treemap
+        function createTreemap(data) {
+            console.log("Creating treemap with data:", data);
+            if (!data) {
+                showStatus("No hay datos para visualizar", "error");
+                return;
+            }
+            
+            // Determinar profundidad máxima a mostrar
+            const maxDepthValue = maxDepth.value;
+            const depthLimit = maxDepthValue === 'all' ? Infinity : parseInt(maxDepthValue);
+            
+            // Limpiar contenedores
+            d3.select("#chart svg").remove();
+            d3.select("#legend").html("");
+            
+            // Obtener dimensiones del contenedor
+            const chartDiv = document.getElementById('chart');
+            const width = chartDiv.clientWidth || 900;
+            const height = chartDiv.clientHeight || 700;
+            
+            // Definir margen
+            const margin = {top: 10, right: 10, bottom: 10, left: 10};
+            
+            // Preparar jerarquía de datos con D3
+            const root = d3.hierarchy(data)
+                .sum(d => d.value || 0)
+                .sort((a, b) => b.value - a.value);
+            
+            // Limitar la profundidad para la visualización
+            function limitDepth(node, currentDepth = 0) {
+                if (currentDepth >= depthLimit) {
+                    // Si alcanzamos el límite, eliminamos los hijos
+                    node.children = null;
+                    return;
+                }
+                
+                if (node.children) {
+                    node.children.forEach(child => limitDepth(child, currentDepth + 1));
+                }
+            }
+            
+            // Solo aplicamos límite si no es infinito
+            if (depthLimit !== Infinity) {
+                limitDepth(root);
+            }
+            
+            // Crear layout de treemap
+            const treemapLayout = d3.treemap()
+                .size([width - margin.left - margin.right, height - margin.top - margin.bottom])
+                .padding(2)
+                .round(true); // Redondear dimensiones para evitar antialiasing
+            
+            // Aplicar layout
+            treemapLayout(root);
+			
+// Crear SVG
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // Preparar breadcrumb
+            updateBreadcrumb(root);
+            
+            // Dibujar los rectángulos
+            const nodes = svg.selectAll("g")
+                .data(root.descendants())
+                .enter()
+                .append("g")
+                .attr("transform", d => `translate(${d.x0},${d.y0})`);
+            
+            nodes.append("rect")
+                .attr("width", d => Math.max(0, d.x1 - d.x0))
+                .attr("height", d => Math.max(0, d.y1 - d.y0))
+                .attr("fill", d => {
+                    const level = d.data.nivel !== undefined ? d.data.nivel : d.depth;
+                    return colorsByLevel[level] || "#cccccc";
+                })
+                .attr("stroke", "white")
+                .attr("stroke-width", "1px")
+                .style("cursor", d => d.children ? "pointer" : "default")
+                .style("opacity", 0.9)
+                .on("mouseover", function(event, d) {
+                    // Resaltar al pasar el ratón si está activada la opción
+                    if (highlightOnHover.checked) {
+                        d3.select(this)
+                            .style("opacity", 1)
+                            .style("stroke-width", "2px");
+                    }
+                    
+                    // Preparar tooltip con valor formateado correctamente
+                    const formattedValue = formatCurrency(d.value);
+                    
+                    // Contenido del tooltip simplificado
+                    let tooltipHTML = `
+                        <div style="padding: 5px; font-weight: bold; border-bottom: 1px solid #ddd; margin-bottom: 5px;">
+                            ${d.data.name}
+                        </div>
+                        <div style="margin: 2px 0;">
+                            <strong>Valor:</strong> ${formattedValue}
+                        </div>
+                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                            Nivel: ${d.data.nivel !== undefined ? d.data.nivel : d.depth}
+                        </div>`;
+                    
+                    // Mostrar tooltip
+                    tooltip.innerHTML = tooltipHTML;
+                    tooltip.style.left = (event.pageX + 15) + "px";
+                    tooltip.style.top = (event.pageY - 28) + "px";
+                    tooltip.style.opacity = 1;
+                    tooltip.style.visibility = "visible";
+                    tooltip.style.display = "block";
+                })
+                .on("mouseout", function() {
+                    // Restaurar estilo normal
+                    d3.select(this)
+                        .style("opacity", 0.9)
+                        .style("stroke-width", "1px");
+                    
+                    // Ocultar tooltip
+                    tooltip.style.opacity = 0;
+                    tooltip.style.visibility = "hidden";
+                })
+                .on("click", function(event, d) {
+                    event.stopPropagation();
+                    
+                    // Solo permitir clic en nodos con hijos
+                    if (d.children && d.children.length > 0) {
+                        // Actualizar el nodo actual para la visualización de la tabla
+                        currentNode = d.data;
+                        
+                        // Recrear gráfico con el nuevo subárbol
+                        createTreemap(d.data);
+                        
+                        // Actualizar tabla con el subconjunto de datos
+                        populateDataTable(d.data);
+                    }
+                });
+				
+            // Añadir etiquetas de texto mejoradas
+            nodes.each(function(d) {
+                const nodeWidth = d.x1 - d.x0;
+                const nodeHeight = d.y1 - d.y0;
+                
+                // Solo mostrar texto en rectángulos lo suficientemente grandes
+                if (nodeWidth < 30 || nodeHeight < 20) return;
+                
+                const name = d.data.name || '';
+                
+                // Crear elemento de texto
+                const text = d3.select(this).append("text")
+                    .attr("class", "node-label")
+                    .attr("x", 5)
+                    .attr("y", 15)
+                    .style("font-size", "12px")
+                    .style("fill", "white")
+                    .style("pointer-events", "none");
+                
+                // Función para medir el ancho del texto
+                function getTextWidth(text, fontSize = '12px') {
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    context.font = fontSize + ' sans-serif';
+                    return context.measureText(text).width;
+                }
+                
+                // Truncar texto si es demasiado largo
+                const availableWidth = nodeWidth - 10; // Margen de 5px a cada lado
+                let displayName = name;
+                const textWidth = getTextWidth(displayName);
+                
+                if (textWidth > availableWidth) {
+                    // Truncar texto para que quepa
+                    let ratio = availableWidth / textWidth;
+                    let newLength = Math.floor(name.length * ratio) - 3; // Espacio para "..."
+                    if (newLength > 0) {
+                        displayName = name.substring(0, newLength) + "...";
+                    } else {
+                        displayName = ""; // Si no hay espacio suficiente, no mostrar texto
+                    }
+                }
+                
+                // Establecer el texto final
+                text.text(displayName);
+                
+                // Para rectángulos más grandes, añadir una segunda línea con el valor
+                if (nodeHeight > 40 && nodeWidth > 60) {
+                    d3.select(this).append("text")
+                        .attr("class", "node-label")
+                        .attr("x", 5)
+                        .attr("y", 32)
+                        .style("font-size", "10px")
+                        .style("fill", "white")
+                        .style("pointer-events", "none")
+                        .text(formatCurrency(d.value));
+                }
+            });
+            
+            // Crear leyenda
+            const legend = d3.select("#legend");
+            legend.html("");
+            
+            Object.entries(colorsByLevel).forEach(([level, color]) => {
+                const legendItem = legend.append("div")
+                    .attr("class", "legend-item");
+                
+                legendItem.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", color);
+                
+                legendItem.append("span")
+                    .text(`Nivel ${level}`);
+            });
+            
+            // Añadir evento de clic al SVG para volver atrás
+            svg.on("click", function(event) {
+                // Solo si el clic fue directamente en el SVG y no en un nodo
+                if (event.target === this && currentNode !== currentData) {
+                    // Retroceder un nivel en la jerarquía
+                    goToParentNode();
+                }
+            });
+        }
+
+        // Función para navegar hacia arriba en la jerarquía
+        function goToParentNode() {
+            // Encontrar nodo padre en la estructura original
+            function findParent(node, target, parent = null) {
+                if (node === target) return parent;
+                
+                if (node.children) {
+                    for (const child of node.children) {
+                        const result = findParent(child, target, node);
+                        if (result) return result;
+                    }
+                }
+                
+                return null;
+            }
+            
+            // Buscar el padre del nodo actual
+            const parent = findParent(currentData, currentNode, currentData);
+            
+            if (parent) {
+                currentNode = parent;
+                
+                // Actualizar visualizaciones
+                createTreemap(currentNode);
+                
+                // Actualizar tabla
+                populateDataTable(currentNode);
+            }
+        }
+		
+		// Función para actualizar el breadcrumb
+        function updateBreadcrumb(d3Node) {
+            const breadcrumb = d3.select("#breadcrumb");
+            breadcrumb.html("");
+            
+            // Construir el camino desde la raíz hasta el nodo actual
+            const sequence = [];
+            let current = d3Node;
+            
+            while (current) {
+                sequence.unshift(current);
+                current = current.parent;
+            }
+            
+            // Añadir el inicio
+            breadcrumb.append("span")
+                .text("Inicio")
+                .attr("data-id", "root")
+                .style("cursor", "pointer")
+                .on("click", () => {
+                    // Volver a la raíz
+                    currentNode = currentData;
+                    
+                    createTreemap(currentData);
+                    
+                    populateDataTable(currentData);
+                });
+            
+            // Construir la ruta
+            sequence.forEach((node, i) => {
+                if (i === 0) return; // Saltar el nodo raíz (ya está como "Inicio")
+                
+                breadcrumb.append("span").text(" > ");
+                
+                // Formatear el valor para mostrar en el título
+                const valueText = formatCurrency(node.value);
+                
+                breadcrumb.append("span")
+                    .text(node.data.name)
+                    .style("cursor", "pointer")
+                    .attr("title", `Valor: ${valueText}`)
+                    .on("click", () => {
+                        if (i < sequence.length - 1) { // No hacer nada si es el último (nodo actual)
+                            currentNode = node.data;
+                            
+                            createTreemap(node.data);
+                            
+                            populateDataTable(node.data);
+                        }
+                    });
+            });
+        }
+		
+		// Función para generar la tabla de datos jerárquica
+        function populateDataTable(hierarchy) {
+            const dataTable = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+            dataTable.innerHTML = ''; // Limpiar tabla
+            
+            // Función recursiva para llenar la tabla con estructura jerárquica
+            function addNodesToTable(node, level = 0, path = [], expanded = false, parentId = null) {
+                if (!node) return;
+                
+                let row = null; // Declarar row aquí para tenerlo disponible en todo el ámbito de la función
+                
+                // No mostrar el nodo raíz en la tabla si es el nivel 0
+                if (level > 0) {
+                    const rowId = `row-${path.join('-')}`;
+                    const className = `level-${level} ${expanded ? '' : 'child-row'} ${parentId ? parentId : ''}`;
+                    
+                    // Crear fila para este nodo
+                    row = dataTable.insertRow();
+                    row.id = rowId;
+                    row.className = className;
+                    
+                    // Celda para nombre (con indentación)
+                    const cellName = row.insertCell(0);
+                    
+                    // Añadir indentación y expandir/colapsar si tiene hijos
+                    let nameContent = '';
+                    
+                    // Indentación basada en el nivel
+                    for (let i = 1; i < level; i++) {
+                        nameContent += '<span class="indent"></span>';
+                    }
+                    
+                    // Icono expandible solo si tiene hijos
+                    if (node.children && node.children.length > 0) {
+                        nameContent += `<span class="level-indicator" data-row="${rowId}" data-expanded="false">▶</span>`;
+                    } else {
+                        nameContent += `<span class="level-indicator"></span>`;
+                    }
+                    
+                    nameContent += node.name;
+                    cellName.innerHTML = nameContent;
+                    cellName.style.fontWeight = 'bold';
+                    
+                    // Celda para nivel
+                    const cellLevel = row.insertCell(1);
+                    cellLevel.textContent = node.nivel || level;
+                    
+                    // Celda para valor acumulado
+                    const cellValue = row.insertCell(2);
+                    cellValue.textContent = formatCurrency(node.value || 0);
+                    cellValue.style.textAlign = 'right';
+                    
+                    // Celda para acción
+                    const cellAction = row.insertCell(3);
+                    cellAction.style.textAlign = 'center';
+					
+					// Botón para visualizar este nodo
+                    if (node.children && node.children.length > 0) {
+                        const viewButton = document.createElement('button');
+                        viewButton.textContent = 'Ver';
+                        viewButton.style.padding = '3px 8px';
+                        viewButton.style.fontSize = '12px';
+                        
+                        viewButton.addEventListener('click', function() {
+                            // Actualizar nodo actual
+                            currentNode = node;
+                            
+                            // Actualizar visualización
+                            createTreemap(node);
+                        });
+                        
+                        cellAction.appendChild(viewButton);
+                    }
+                    
+                    // Evento para expandir/colapsar filas hijas
+                    if (node.children && node.children.length > 0) {
+                        const indicator = row.querySelector('.level-indicator');
+                        if (indicator) { // Verificar que existe antes de añadir evento
+                            indicator.style.cursor = 'pointer';
+                            
+                            indicator.addEventListener('click', function() {
+                                const rowId = this.getAttribute('data-row');
+                                const isExpanded = this.getAttribute('data-expanded') === 'true';
+                                
+                                // Cambiar estado
+                                this.setAttribute('data-expanded', !isExpanded);
+                                this.textContent = isExpanded ? '▶' : '▼';
+                                
+                                // Mostrar/ocultar filas hijas
+                                const childRows = document.querySelectorAll(`.${rowId}`);
+                                childRows.forEach(childRow => {
+                                    childRow.style.display = isExpanded ? 'none' : 'table-row';
+                                });
+                            });
+                        }
+                    }
+                }
+                
+                // Procesar hijos solo si se piden todos los niveles o si estamos dentro del límite
+                if (node.children && node.children.length > 0) {
+                    // Solo mostrar la primera generación de hijos inicialmente
+                    // Para niveles más profundos, se mostrarán al expandir sus padres
+                    const showChildren = level <= 1;
+                    
+                    node.children.forEach((child, index) => {
+                        const childPath = [...path, index];
+                        const parentRowId = row ? row.id : null; // Verificamos si row existe
+                        
+                        addNodesToTable(
+                            child, 
+                            level + 1, 
+                            childPath, 
+                            showChildren, 
+                            parentRowId
+                        );
+                    });
+                }
+            }
+            
+            // Iniciar el proceso recursivo desde el nodo raíz
+            addNodesToTable(hierarchy);
+            
+            // Configurar los eventos para expandir/contraer después de crear todas las filas
+            document.querySelectorAll('.level-indicator[data-row]').forEach(indicator => {
+                if (indicator.getAttribute('data-expanded') === 'false') {
+                    const rowId = indicator.getAttribute('data-row');
+                    const childRows = document.querySelectorAll(`.${rowId}`);
+                    childRows.forEach(row => {
+                        row.style.display = 'none';
+                    });
+                }
+            });
+        }
+
+        // Event Listeners para la interfaz
+        btnLoadSample.addEventListener('click', function() {
+            dataInput.value = sampleData;
+            showStatus('Datos de ejemplo cargados');
+        });
+
+        btnProcessData.addEventListener('click', function() {
+            const text = dataInput.value.trim();
+            if (!text) {
+                showStatus('Por favor, ingrese datos para procesar.', 'error');
+                return;
+            }
+            processTextData(text);
+        });
+
+        btnLoadFile.addEventListener('click', function() {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showStatus('Por favor, selecciona un archivo primero.', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            showStatus('Leyendo archivo...');
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                processTextData(text);
+            };
+            
+            reader.onerror = function() {
+                showStatus('Error al leer el archivo.', 'error');
+            };
+            
+            reader.readAsText(file);
+        });
+		
+		// Event Listeners para opciones
+        document.getElementById('maxDepth').addEventListener('change', function() {
+            if (currentNode) {
+                createTreemap(currentNode);
+            }
+        });
+
+        highlightOnHover.addEventListener('change', function() {
+            // No necesita actualizar la visualización, ya que solo afecta al comportamiento del hover
+        });
+
+        // Manejo de tabs
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                this.classList.add('active');
+                document.getElementById('tab' + this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1)).classList.add('active');
+            });
+        });
+
+        // Evento para cargar archivo cuando se selecciona
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const fileName = this.files[0].name;
+                showStatus(`Archivo seleccionado: ${fileName}`);
+            }
+        });
+
+        // Inicialización
+        window.addEventListener('load', function() {
+            // Mostrar mensaje inicial
+            showStatus('Selecciona un archivo o utiliza los datos de ejemplo para comenzar');
+            
+            // Configurar manejo de errores global
+            window.addEventListener('error', function(event) {
+                console.error('Error capturado:', event.error);
+                showStatus(`Error: ${event.error.message}`, 'error');
+            });
+        });
+    </script>
+</body>
+</html>

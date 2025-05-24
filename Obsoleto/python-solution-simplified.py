@@ -1,0 +1,265 @@
+import pandas as pd
+import numpy as np
+from pathlib import Path
+import time
+import traceback
+
+def procesar_datos_jerarquicos(df, timeout_minutos=5):
+    """
+    Procesa datos jerárquicos con totalizaciones y formato simplificado.
+    """
+    tiempo_inicio = time.time()
+    timeout_segundos = timeout_minutos * 60
+    
+    print(f"Iniciando procesamiento ({len(df)} filas)...")
+    
+    # Función para verificar si se ha excedido el tiempo
+    def verificar_tiempo():
+        tiempo_actual = time.time() - tiempo_inicio
+        if tiempo_actual > timeout_segundos:
+            print(f"⚠️ TIMEOUT: Procesamiento interrumpido después de {timeout_minutos} minutos")
+            return True
+        return False
+    
+    # Preparación de datos
+    print("Preparando datos...")
+    try:
+        # Copia del dataframe
+        df = df.copy()
+        
+        # Convertir tipos
+        df['Prj'] = df['Prj'].astype(str)
+        df['Parte_Prj'] = df['Parte_Prj'].astype(str).str.zfill(4)
+        df['Cia'] = df['Cia'].astype(str)
+        df['Subnivel'] = df['Subnivel'].astype(int)
+        df['Nodo'] = df['Nodo'].astype(int)
+        df['Nodo_Padre'] = df['Nodo_Padre'].astype(int)
+        
+        # Convertir Coste_real si tiene comas
+        if df['Coste_real'].dtype == object:
+            df['Coste_real'] = df['Coste_real'].str.replace(',', '.').astype(float)
+        
+        # Añadir claves
+        df['ClaveJerarquica'] = df['Cia'] + '-' + df['Prj'] + '-' + df['Parte_Prj'] + '-' + df['Subnivel'].astype(str) + '-' + df['Nodo'].astype(str)
+        df['ClavePadre'] = np.where(
+            df['Nodo_Padre'] == 0,
+            None,
+            df['Cia'] + '-' + df['Prj'] + '-' + df['Parte_Prj'] + '-' + df['Subnivel'].astype(str) + '-' + df['Nodo_Padre'].astype(str)
+        )
+        df['Grupo'] = df['Cia'] + '-' + df['Prj'] + '-' + df['Parte_Prj']
+        
+        # Análisis de la estructura de niveles
+        print("\nAnálisis de estructura de datos:")
+        print(f"Valores únicos de Subnivel: {sorted(df['Subnivel'].unique())}")
+        subnivel_counts = df['Subnivel'].value_counts().sort_index()
+        print(f"Conteo por Subnivel: {subnivel_counts.to_dict()}")
+    except Exception as e:
+        print(f"Error en preparación de datos: {str(e)}")
+        traceback.print_exc()
+        return None
+    
+    # PASO 1: DETERMINAR NIVELES CORRECTAMENTE
+    print("\nCalculando niveles basados en Subnivel...")
+    try:
+        # Usar Subnivel como base para el Nivel
+        df['Nivel'] = df['Subnivel']
+        
+        # Verificar distribución de niveles
+        print(f"Distribución de niveles: {df['Nivel'].value_counts().sort_index().to_dict()}")
+    except Exception as e:
+        print(f"Error en cálculo de niveles: {str(e)}")
+        traceback.print_exc()
+        return None
+    
+    # PASO 2: GENERAR DESCRIPCIONES SIMPLIFICADAS
+    print("\nGenerando descripciones simplificadas...")
+    try:
+        # Crear descripciones simplificadas para cada nivel
+        df['Descripcion'] = np.where(
+            (df['Artículo'].isna()) | (df['Artículo'] == 'null'),
+            np.where(
+                df['Nivel'] == 1,  # Para nivel 1 simplificamos aún más
+                df['Prj'] + "." + df['Parte_Prj'],  # Solo proyecto.parte_proyecto
+                df['Prj'] + "." + df['Parte_Prj'] + " - " + df['Compo_Coste'].astype(str)
+            ),
+            df['Artículo'].astype(str)  # Para los artículos, solo el código
+        )
+        
+        # Agregar valor directo
+        df['Valor'] = df['Coste_real']
+        
+        # Crear descripción de árbol con indentación
+        df['DescripcionArbol'] = df.apply(lambda row: '    ' * (row['Nivel'] - 1) + row['Descripcion'], axis=1)
+    except Exception as e:
+        print(f"Error en generación de descripciones: {str(e)}")
+        traceback.print_exc()
+        return None
+    
+    # PASO 3: CALCULAR TOTALES POR NIVELES
+    print("\nCalculando totales por niveles...")
+    try:
+        # Crear diccionarios para totales por proyecto y nivel
+        totales = {}
+        
+        # Primero ordenamos los datos por nivel (procesando primero los niveles más bajos)
+        df_ordenado = df.sort_values(['Prj', 'Parte_Prj', 'Nivel'], ascending=[True, True, False])
+        
+        # Función para obtener clave de agrupación
+        def get_key(row):
+            return f"{row['Prj']}-{row['Parte_Prj']}-{row['Nivel']}-{row['Nodo']}"
+        
+        # Diccionario para guardar valores calculados
+        valores_calculados = {}
+        
+        # Calcular totales para nodos hoja primero
+        for _, row in df_ordenado.iterrows():
+            key = get_key(row)
+            
+            # Los nodos hoja (que no son padres de nadie) mantienen su valor original
+            # Para los nodos que son padres, calculamos la suma de sus hijos
+            if row['Nivel'] == df['Nivel'].max():  # Si es el nivel más bajo
+                valores_calculados[key] = row['Valor']
+            else:
+                # Encontrar todos los hijos de este nodo
+                hijos = df[(df['Prj'] == row['Prj']) & 
+                           (df['Parte_Prj'] == row['Parte_Prj']) & 
+                           (df['Nivel'] > row['Nivel']) &
+                           (df['Nodo_Padre'] == row['Nodo'])]
+                
+                if len(hijos) > 0:
+                    # Si tiene hijos, calcular suma de valores
+                    suma_hijos = sum(hijos['Valor'])
+                    valores_calculados[key] = suma_hijos
+                else:
+                    # Si no tiene hijos, usar el valor original
+                    valores_calculados[key] = row['Valor']
+        
+        # Actualizar valores en el DataFrame
+        for key, valor in valores_calculados.items():
+            partes = key.split('-')
+            prj, parte, nivel, nodo = partes[0], partes[1], int(partes[2]), int(partes[3])
+            
+            # Localizar la fila correspondiente
+            mask = (df['Prj'] == prj) & (df['Parte_Prj'] == parte) & (df['Nivel'] == nivel) & (df['Nodo'] == nodo)
+            if any(mask):
+                df.loc[mask, 'Valor'] = valor
+        
+        print("Totales calculados correctamente.")
+    except Exception as e:
+        print(f"Error en cálculo de totales: {str(e)}")
+        traceback.print_exc()
+        return None
+    
+    # PASO 4: GENERAR COLUMNAS DE NIVEL CON FORMATO SIMPLIFICADO
+    print("\nGenerando columnas de nivel simplificadas...")
+    try:
+        # Determinar nivel máximo
+        nivel_maximo = df['Nivel'].max()
+        print(f"Nivel máximo detectado: {nivel_maximo}")
+        
+        # Formato de valores monetarios
+        def formato_monetario(valor):
+            if pd.isna(valor) or valor == 0:
+                return ""
+            return f"{valor:,.2f}€".replace(",", "X").replace(".", ",").replace("X", ".")
+        
+        # Añadir el valor monetario formateado a las descripciones
+        df['DescripcionConValor'] = df.apply(
+            lambda row: f"{row['Descripcion']} - {formato_monetario(row['Valor'])}", 
+            axis=1
+        )
+        
+        # Crear columnas con indentación y valores
+        nuevas_columnas = {}
+        for nivel in range(1, nivel_maximo + 1):
+            col_name = f'Nivel{nivel}'
+            df_nivel = df[df['Nivel'] == nivel].copy()
+            
+            # Añadir indentación
+            df_nivel['DescripcionFormateada'] = '    ' * (nivel - 1) + df_nivel['DescripcionConValor']
+            
+            # Crear la nueva columna
+            nuevas_columnas[col_name] = np.where(
+                df['Nivel'] == nivel, 
+                df_nivel['DescripcionFormateada'], 
+                None
+            )
+        
+        # Añadir todas las columnas de una vez
+        for col_name, valores in nuevas_columnas.items():
+            df[col_name] = valores
+    except Exception as e:
+        print(f"Error en generación de columnas: {str(e)}")
+        traceback.print_exc()
+        return None
+    
+    # PASO 5: APLICAR RELLENO POR GRUPO
+    print("\nAplicando relleno por grupo...")
+    try:
+        result_dfs = []
+        
+        # Procesar cada grupo
+        for nombre_grupo, grupo_df in df.groupby(['Prj', 'Parte_Prj']):
+            print(f"  Procesando grupo {nombre_grupo}...")
+            
+            # Ordenar dentro del grupo
+            grupo_df = grupo_df.sort_values(['Nivel', 'Nodo'])
+            
+            # Rellenar valores
+            for nivel in range(1, nivel_maximo + 1):
+                col_name = f'Nivel{nivel}'
+                grupo_df[col_name] = grupo_df[col_name].ffill()
+            
+            result_dfs.append(grupo_df)
+            
+            if verificar_tiempo():
+                return None
+        
+        # Combinar resultados
+        result_df = pd.concat(result_dfs)
+        
+        # Ordenar resultado final
+        result_df = result_df.sort_values(['Prj', 'Parte_Prj', 'Nivel', 'Nodo'])
+        
+        # Seleccionar solo las columnas de nivel y valor para el resultado final
+        columns_to_keep = ['Cia', 'Prj', 'Parte_Prj', 'Nivel', 'Valor'] + [f'Nivel{i}' for i in range(1, nivel_maximo + 1)]
+        
+        result_df = result_df[columns_to_keep]
+    except Exception as e:
+        print(f"Error en relleno por grupo: {str(e)}")
+        traceback.print_exc()
+        return None
+    
+    tiempo_total = time.time() - tiempo_inicio
+    print(f"\n✅ Procesamiento completado en {tiempo_total:.2f} segundos")
+    return result_df
+
+def main():
+    try:
+        # Ruta del archivo Excel
+        excel_path = Path(r"C:\Users\127839\Downloads\StoryMac\DashBTracker\PruebasCdM\F_Asg3.xlsx")
+        print(f"Procesando archivo: {excel_path}")
+        
+        # Cargar datos
+        print("Cargando datos...")
+        df = pd.read_excel(excel_path, sheet_name="F_Asg3")
+        print(f"Datos cargados: {len(df)} filas")
+        
+        # Procesar datos con límite de tiempo
+        result_df = procesar_datos_jerarquicos(df, timeout_minutos=5)
+        
+        if result_df is not None:
+            # Escribir resultados en una nueva hoja
+            output_path = excel_path.parent / "Resultado_Jerarquico_Simplificado.xlsx"
+            print(f"Guardando resultados en: {output_path}")
+            result_df.to_excel(output_path, sheet_name='Resultado_Jerarquico', index=False)
+            print(f"✅ Resultados guardados exitosamente.")
+        else:
+            print("❌ No se pudo completar el procesamiento.")
+        
+    except Exception as e:
+        print(f"❌ Error general: {str(e)}")
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()

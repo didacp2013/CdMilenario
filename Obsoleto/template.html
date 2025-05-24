@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualización Jerárquica</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #1e3a8a;
+        }
+        
+        #chart {
+            width: 900px;
+            height: 600px;
+            margin: 0 auto;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            pointer-events: none;
+            opacity: 0;
+        }
+        
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Visualización Jerárquica de Proyectos</h1>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label for="filter-cia">Compañía:</label>
+                <select id="filter-cia" multiple size="5"></select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-proyecto">Proyecto:</label>
+                <select id="filter-proyecto" multiple size="5"></select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-row">Row:</label>
+                <select id="filter-row" multiple size="5"></select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-column">Column:</label>
+                <select id="filter-column" multiple size="5"></select>
+            </div>
+            <div class="filter-buttons">
+                <button id="apply-filters">Aplicar Filtros</button>
+                <button id="reset-filters">Resetear</button>
+            </div>
+        </div>
+        
+        <div id="chart"></div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+    // Los datos vendrán de Python
+    const data = DATOS_AQUI;
+    
+    // Función para extraer el nombre de un valor compuesto (formato: "número:nombre")
+    function extractName(value) {
+        if (typeof value === 'string' && value.includes(':')) {
+            return value.split(':')[1].trim();
+        }
+        return value;
+    }
+    
+    // Llenar selectores de filtros
+    const ciaSelect = document.getElementById('filter-cia');
+    const proyectoSelect = document.getElementById('filter-proyecto');
+    const rowSelect = document.getElementById('filter-row');
+    const columnSelect = document.getElementById('filter-column');
+    
+    // Obtener valores únicos
+    const cias = [...new Set(data.map(d => d.Cia))];
+    const proyectos = [...new Set(data.map(d => d.PrjId))];
+    const rows = [...new Set(data.map(d => d.Row))];
+    const columns = [...new Set(data.map(d => d.Column))];
+    
+    // Llenar selectores
+    cias.forEach(cia => {
+        const option = document.createElement('option');
+        option.value = cia;
+        option.textContent = cia;
+        ciaSelect.appendChild(option);
+    });
+    
+    proyectos.forEach(proyecto => {
+        const option = document.createElement('option');
+        option.value = proyecto;
+        option.textContent = proyecto;
+        proyectoSelect.appendChild(option);
+    });
+    
+    rows.forEach(row => {
+        const option = document.createElement('option');
+        option.value = row;
+        option.textContent = extractName(row);
+        rowSelect.appendChild(option);
+    });
+    
+    columns.forEach(column => {
+        const option = document.createElement('option');
+        option.value = column;
+        option.textContent = extractName(column);
+        columnSelect.appendChild(option);
+    });
+    
+    // Crear estructura de datos jerárquica
+    function buildHierarchy(data) {
+        // Filtrar según selecciones
+        const selectedCias = Array.from(ciaSelect.selectedOptions).map(o => o.value);
+        const selectedProyectos = Array.from(proyectoSelect.selectedOptions).map(o => o.value);
+        const selectedRows = Array.from(rowSelect.selectedOptions).map(o => o.value);
+        const selectedColumns = Array.from(columnSelect.selectedOptions).map(o => o.value);
+        
+        let filteredData = data;
+        
+        if (selectedCias.length > 0) {
+            filteredData = filteredData.filter(d => selectedCias.includes(d.Cia));
+        }
+        
+        if (selectedProyectos.length > 0) {
+            filteredData = filteredData.filter(d => selectedProyectos.includes(d.PrjId));
+        }
+        
+        if (selectedRows.length > 0) {
+            filteredData = filteredData.filter(d => selectedRows.includes(d.Row));
+        }
+        
+        if (selectedColumns.length > 0) {
+            filteredData = filteredData.filter(d => selectedColumns.includes(d.Column));
+        }
+        
+        // Crear jerarquía
+        const root = {
+            name: "Proyectos",
+            children: []
+        };
+        
+        // Mapa para proyectos
+        const projectMap = new Map();
+        
+        // Mapa para niveles
+        const levelMaps = [new Map(), new Map(), new Map()];
+        
+        // Procesar datos
+        filteredData.forEach(row => {
+            const nivel = row.Nivel;
+            const cia = row.Cia;
+            const prj = row.PrjId;
+            const rowValue = row.Row;
+            const columnValue = row.Column;
+            const valor = row.Valor;
+            
+            // Extraer nombres para visualización
+            const rowName = extractName(rowValue);
+            const columnName = extractName(columnValue);
+            
+            // Clave para proyecto
+            const projKey = `${cia}-${prj}`;
+            
+            // Clave para parte
+            const parteKey = `${cia}-${prj}-${rowValue}`;
+            
+            // Manejo según nivel
+            if (nivel === 1) {
+                // Primer nivel (proyecto)
+                let projNode = projectMap.get(projKey);
+                
+                if (!projNode) {
+                    projNode = {
+                        name: `${cia} - ${prj}.${rowName}`,
+                        level: nivel,
+                        value: valor,
+                        children: []
+                    };
+                    
+                    projectMap.set(projKey, projNode);
+                    root.children.push(projNode);
+                    levelMaps[0].set(parteKey, projNode);
+                }
+            } else if (nivel === 2) {
+                // Segundo nivel
+                const parentNode = levelMaps[0].get(parteKey);
+                
+                if (parentNode) {
+                    const nodeKey = `${parteKey}-${columnValue}`;
+                    let node = levelMaps[1].get(nodeKey);
+                    
+                    if (!node) {
+                        node = {
+                            name: `${prj}.${rowName} - ${columnName}`,
+                            level: nivel,
+                            value: valor,
+                            children: []
+                        };
+                        
+                        parentNode.children.push(node);
+                        levelMaps[1].set(nodeKey, node);
+                    }
+                }
+            } else if (nivel === 3) {
+                // Tercer nivel
+                const parentKey = `${cia}-${prj}-${rowValue}-${columnValue}`;
+                const parentNode = levelMaps[1].get(parentKey);
+                
+                if (parentNode) {
+                    const nodeKey = `${parentKey}-${row.Descripcion}`;
+                    
+                    const node = {
+                        name: row.Descripcion || `Item ${row.Nodo}`,
+                        level: nivel,
+                        value: valor
+                    };
+                    
+                    parentNode.children.push(node);
+                }
+            }
+        });
+        
+        return root;
+    }
+    
+    // Crear Treemap
+    function createTreemap(data) {
+        // Limpiar visualización anterior
+        d3.select("#chart").html("");
+        
+        const width = 900;
+        const height = 600;
+        
+        // Colores por nivel
+        const colors = {
+            1: "#3b82f6",  // Azul
+            2: "#10b981",  // Verde
+            3: "#f59e0b"   // Naranja
+        };
+        
+        // Crear jerarquía D3
+        const hierarchy = d3.hierarchy(data)
+            .sum(d => d.value)
+            .sort((a, b) => b.value - a.value);
+        
+        // Crear layout
+        const treemap = d3.treemap()
+            .size([width, height])
+            .padding(2)
+            .round(true);
+        
+        // Aplicar layout
+        treemap(hierarchy);
+        
+        // Crear SVG
+        const svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+        
+        // Crear nodos
+        const nodes = svg.selectAll("g")
+            .data(hierarchy.descendants())
+            .enter()
+            .append("g")
+            .attr("transform", d => `translate(${d.x0},${d.y0})`);
+        
+        // Dibujar rectángulos
+        nodes.append("rect")
+            .attr("width", d => d.x1 - d.x0)
+            .attr("height", d => d.y1 - d.y0)
+            .attr("fill", d => colors[d.data.level] || "#ccc")
+            .attr("stroke", "white")
+            .on("mouseover", function(event, d) {
+                // Mostrar tooltip
+                const tooltip = d3.select("#tooltip");
+                
+                tooltip.html(`
+                    <div style="font-weight: bold;">${d.data.name}</div>
+                    <div>Valor: ${d.value.toLocaleString('es-ES', {
+                        style: 'currency',
+                        currency: 'EUR'
+                    })}</div>
+                `)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px")
+                .style("opacity", 1);
+            })
+            .on("mouseout", function() {
+                d3.select("#tooltip").style("opacity", 0);
+            });
+        
+        // Añadir textos
+        nodes.append("text")
+            .attr("x", 5)
+            .attr("y", 15)
+            .text(d => {
+                // Solo mostrar texto si hay suficiente espacio
+                const width = d.x1 - d.x0;
+                const height = d.y1 - d.y0;
+                
+                if (width < 30 || height < 20) return "";
+                
+                return d.data.name;
+            })
+            .attr("font-size", "12px")
+            .attr("fill", "white");
+    }
+    
+    // Aplicar filtros
+    document.getElementById("apply-filters").addEventListener("click", function() {
+        const hierarchy = buildHierarchy(data);
+        createTreemap(hierarchy);
+    });
+    
+    // Resetear filtros
+    document.getElementById("reset-filters").addEventListener("click", function() {
+        ciaSelect.selectedIndex = -1;
+        proyectoSelect.selectedIndex = -1;
+        rowSelect.selectedIndex = -1;
+        columnSelect.selectedIndex = -1;
+        
+        const hierarchy = buildHierarchy(data);
+        createTreemap(hierarchy);
+    });
+    
+    // Inicializar visualización
+    const hierarchy = buildHierarchy(data);
+    createTreemap(hierarchy);
+    </script>
+</body>
+</html>

@@ -1,0 +1,2053 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuadro de Mando - Comparativo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #1e3a8a;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+        }
+        
+        button:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+        
+        .file-upload {
+            background-color: #f1f5f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .file-input-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .file-input-container input {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+        }
+        
+        th {
+            background-color: #f1f5f9;
+            text-align: center;
+        }
+        
+        .mini-chart {
+            height: 30px;
+            width: 100%;
+            margin-top: 2px;
+        }
+        
+        .cell-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .cell-content:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        .cell-content:focus-within {
+            outline: 2px solid #3b82f6;
+            border-radius: 4px;
+        }
+        
+        .cell-value {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2px;
+        }
+        
+        .cell-comparative {
+            display: flex;
+            flex-direction: column;
+            font-size: 9px;
+            margin: 2px 0;
+            width: 100%;
+        }
+        
+        .comp-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 3px;
+            border-radius: 2px;
+            margin: 1px 0;
+        }
+        
+        .comp-label {
+            font-weight: bold;
+        }
+        
+        .comp-value {
+            margin-left: 4px;
+        }
+        
+        .comp-item.positive {
+            background-color: rgba(22, 163, 74, 0.1);
+            color: #15803d;
+        }
+        
+        .comp-item.negative {
+            background-color: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+        }
+        
+        .positive {
+            color: #1d4ed8;
+        }
+        
+        .negative {
+            color: #dc2626;
+        }
+        
+        .cell-periods {
+            text-align: center;
+            font-size: 8px;
+            color: #64748b;
+            margin-top: 1px;
+        }
+        
+        #loadingIndicator {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #matrixContainer {
+            display: none;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 20px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .detail-chart {
+            height: 300px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        
+        .status-indicator {
+            display: none;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        
+        .control-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+        
+        select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+        
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .project-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .project-selector label {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .project-selector select {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cuadro de Mando - Comparativo</h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="fileUpload">Cargar Archivo</div>
+            <div class="tab" data-tab="pasteData">Pegar Datos</div>
+            <div class="tab" data-tab="compareData">Datos Comparativos</div>
+            <div class="tab" data-tab="options">Opciones</div>
+        </div>
+        
+        <div id="tabFileUpload" class="tab-content active">
+            <h2>Cargar desde archivo TXT</h2>
+            <div class="file-upload">
+                <p>Selecciona un archivo de datos en formato TXT con columnas separadas por tabulación:</p>
+                <div class="file-input-container">
+                    <input type="file" id="fileInput" accept=".txt" />
+                    <button id="btnLoadFile">Cargar Archivo</button>
+                </div>
+                <p><small>El archivo debe incluir las columnas: PrjId, Row, Column, Wks, REAL, PPTO, PREV</small></p>
+            </div>
+        </div>
+        
+        <div id="tabPasteData" class="tab-content">
+            <h2>Pegar datos manualmente</h2>
+            <p>Copia los datos desde Excel y pégalos aquí:</p>
+            <textarea id="dataInput" placeholder="Pega aquí los datos desde Excel (formato: PrjId, Row, Column, Wks, REAL, PPTO, PREV)"></textarea>
+            <div>
+                <button id="btnLoadSample">Cargar Datos de Ejemplo</button>
+                <button id="btnProcessData">Procesar Datos</button>
+            </div>
+        </div>
+        
+        <div id="tabCompareData" class="tab-content">
+            <h2>Cargar datos comparativos</h2>
+            <p>Carga los datos comparativos para enriquecer el análisis:</p>
+            
+            <div class="file-upload">
+                <p>Selecciona un archivo de datos comparativos (formato esperado: Column, PrjId, Row, REAL, %PRV/PTO, %REA/PRV, PDTE):</p>
+                <div class="file-input-container">
+                    <input type="file" id="compareFileInput" accept=".txt, .csv" />
+                    <button id="btnLoadCompareFile">Cargar Archivo</button>
+                </div>
+            </div>
+            
+            <p>O pega directamente los datos:</p>
+            <textarea id="compareDataInput" placeholder="Pega aquí los datos comparativos desde Excel"></textarea>
+            <div>
+                <button id="btnProcessCompareData">Procesar Datos Comparativos</button>
+            </div>
+        </div>
+        
+        <div id="tabOptions" class="tab-content">
+            <h2>Opciones Avanzadas</h2>
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                <h3>Columnas de datos</h3>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div>
+                        <label>Columna para ID de Proyecto:</label>
+                        <select id="projectIdColumn">
+                            <option value="PrjId">PrjId</option>
+                            <option value="ID_Proyecto">ID_Proyecto</option>
+                            <option value="Proyecto">Proyecto</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Categorías:</label>
+                        <select id="categoryColumn">
+                            <option value="Row">Row</option>
+                            <option value="Categoría">Categoría</option>
+                            <option value="Categoria">Categoria</option>
+                            <option value="Category">Category</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Subcategorías:</label>
+                        <select id="subcategoryColumn">
+                            <option value="Column">Column</option>
+                            <option value="Subcategoría">Subcategoría</option>
+                            <option value="Subcategoria">Subcategoria</option>
+                            <option value="Subcategory">Subcategory</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Períodos:</label>
+                        <select id="periodColumn">
+                            <option value="Wks">Wks</option>
+                            <option value="Período">Período</option>
+                            <option value="Periodo">Periodo</option>
+                            <option value="Period">Period</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Valores Reales:</label>
+                        <select id="realValueColumn">
+                            <option value="REAL">REAL</option>
+                            <option value="Value">Value</option>
+                            <option value="Valor">Valor</option>
+                            <option value="Amount">Amount</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Presupuesto:</label>
+                        <select id="pptoValueColumn">
+                            <option value="PPTO">PPTO</option>
+                            <option value="Presupuesto">Presupuesto</option>
+                            <option value="Budget">Budget</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Previsión:</label>
+                        <select id="prevValueColumn">
+                            <option value="PREV">PREV</option>
+                            <option value="Previsión">Previsión</option>
+                            <option value="Forecast">Forecast</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="checkbox" id="autoDetectColumns" checked>
+                        Detectar columnas automáticamente
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div id="statusIndicator" class="status-indicator"></div>
+        
+        <div id="loadingIndicator">
+            <p>Procesando datos...</p>
+        </div>
+        
+        <div id="matrixContainer">
+            <h2>Matriz de Visualización Comparativa</h2>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label class="control-label">Mostrar:</label>
+                    <select id="viewMode">
+                        <option value="top">Top categorías y subcategorías</option>
+                        <option value="all">Todas las categorías y subcategorías</option>
+                    </select>
+                </div>
+                
+                <div class="control-group" id="rowsControl">
+                    <label class="control-label">Filas (max):</label>
+                    <select id="maxRows">
+                        <option value="5">5 filas</option>
+                        <option value="10" selected>10 filas</option>
+                        <option value="15">15 filas</option>
+                        <option value="20">20 filas</option>
+                    </select>
+                </div>
+                
+                <div class="control-group" id="colsControl">
+                    <label class="control-label">Columnas (max):</label>
+                    <select id="maxCols">
+                        <option value="4">4 columnas</option>
+                        <option value="6">6 columnas</option>
+                        <option value="8" selected>8 columnas</option>
+                        <option value="10">10 columnas</option>
+                    </select>
+                </div>
+            </div>
+            
+            <table id="matrixTable">
+                <thead>
+                    <tr id="headerRow">
+                        <th>Categoría / Subcategoría</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                <div style="display: flex; gap: 20px;">
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 12px; height: 12px; background-color: #3b82f6; margin-right: 5px; border-radius: 2px;"></div>
+                        <span style="font-size: 12px;">Valores positivos: Costes/Gastos</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 12px; height: 12px; background-color: #ef4444; margin-right: 5px; border-radius: 2px;"></div>
+                        <span style="font-size: 12px;">Valores negativos: Ingresos/Ajustes</span>
+                    </div>
+                </div>
+                
+                <p style="font-size: 12px; color: #64748b; margin: 0;">
+                    Haz clic en cualquier celda para ver el detalle | Doble clic para gráfico comparativo
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2 id="modalTitle">Detalle</h2>
+            <div class="detail-chart" id="detailChart">
+                <div class="chart-placeholder">Cargando gráfico...</div>
+            </div>
+            <div id="chartStatus" style="text-align: center; color: #64748b; margin: 10px 0; font-size: 12px;"></div>
+            <div id="detailTable"></div>
+        </div>
+    </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+        // Referencias a elementos DOM
+        const fileInput = document.getElementById('fileInput');
+        const btnLoadFile = document.getElementById('btnLoadFile');
+        const dataInput = document.getElementById('dataInput');
+        const btnLoadSample = document.getElementById('btnLoadSample');
+        const btnProcessData = document.getElementById('btnProcessData');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const matrixContainer = document.getElementById('matrixContainer');
+        const headerRow = document.getElementById('headerRow');
+        const tableBody = document.getElementById('tableBody');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const viewMode = document.getElementById('viewMode');
+        const maxRows = document.getElementById('maxRows');
+        const maxCols = document.getElementById('maxCols');
+        
+        // Opciones avanzadas
+        const projectIdColumn = document.getElementById('projectIdColumn');
+        const categoryColumn = document.getElementById('categoryColumn');
+        const subcategoryColumn = document.getElementById('subcategoryColumn');
+        const periodColumn = document.getElementById('periodColumn');
+        const realValueColumn = document.getElementById('realValueColumn');
+        const pptoValueColumn = document.getElementById('pptoValueColumn');
+        const prevValueColumn = document.getElementById('prevValueColumn');
+        const autoDetectColumns = document.getElementById('autoDetectColumns');
+        
+        // Modal de detalle
+        const detailModal = document.getElementById('detailModal');
+        const closeModal = document.getElementById('closeModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const detailChart = document.getElementById('detailChart');
+        const detailTable = document.getElementById('detailTable');
+        const chartStatus = document.getElementById('chartStatus');
+        
+        // Variables para almacenar datos procesados
+        let headers = [];
+        let rawData = [];
+        let projectIds = [];
+        let categories = [];
+        let subcategories = [];
+        let allPeriods = [];
+        let cellData = {};
+        
+        // Función de debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Mostrar mensaje de estado
+        function showStatus(message, type = 'info') {
+            statusIndicator.textContent = message;
+            statusIndicator.style.display = 'block';
+            
+            if (type === 'error') {
+                statusIndicator.style.backgroundColor = '#fee2e2';
+                statusIndicator.style.borderLeftColor = '#ef4444';
+            } else if (type === 'success') {
+                statusIndicator.style.backgroundColor = '#dcfce7';
+                statusIndicator.style.borderLeftColor = '#22c55e';
+            } else {
+                statusIndicator.style.backgroundColor = '#f0f9ff';
+                statusIndicator.style.borderLeftColor = '#3b82f6';
+            }
+            
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 5000);
+        }
+
+        // Loading overlay
+        function showLoadingOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = `
+                <div class="loading-spinner"></div>
+                <p>Procesando datos...</p>
+            `;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        function hideLoadingOverlay(overlay) {
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        }
+
+        // Event Listeners
+        autoDetectColumns.addEventListener('change', function() {
+            projectIdColumn.disabled = this.checked;
+            categoryColumn.disabled = this.checked;
+            subcategoryColumn.disabled = this.checked;
+            periodColumn.disabled = this.checked;
+            realValueColumn.disabled = this.checked;
+            pptoValueColumn.disabled = this.checked;
+            prevValueColumn.disabled = this.checked;
+        });
+
+        // Evento para cargar archivo cuando se selecciona
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const reader = new FileReader();
+                
+                showStatus('Leyendo archivo...');
+                
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    processTextData(text);
+                };
+                
+                reader.onerror = function() {
+                    showStatus('Error al leer el archivo.', 'error');
+                };
+                
+                reader.readAsText(file);
+            }
+        });
+
+        btnLoadSample.addEventListener('click', loadSampleData);
+
+        btnProcessData.addEventListener('click', function() {
+            const text = dataInput.value.trim();
+            if (!text) {
+                showStatus('Por favor, ingrese datos para procesar.', 'error');
+                return;
+            }
+            processTextData(text);
+        });
+
+        btnLoadFile.addEventListener('click', function() {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showStatus('Por favor, selecciona un archivo primero.', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            showStatus('Leyendo archivo...');
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                processTextData(text);
+            };
+            
+            reader.onerror = function() {
+                showStatus('Error al leer el archivo.', 'error');
+            };
+            
+            reader.readAsText(file);
+        });
+
+        // Event listeners para datos comparativos
+        document.getElementById('btnProcessCompareData').addEventListener('click', function() {
+            const text = document.getElementById('compareDataInput').value.trim();
+            if (!text) {
+                showStatus('Por favor, ingresa datos comparativos para procesar.', 'error');
+                return;
+            }
+            
+            try {
+                processComparativeData(text);
+            } catch (error) {
+                showStatus(`Error procesando datos comparativos: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('btnLoadCompareFile').addEventListener('click', function() {
+            const fileInput = document.getElementById('compareFileInput');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showStatus('Por favor, selecciona un archivo de datos comparativos primero.', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            showStatus('Leyendo archivo de datos comparativos...');
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                try {
+                    processComparativeData(text);
+                } catch (error) {
+                    showStatus(`Error procesando datos comparativos: ${error.message}`, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showStatus('Error al leer el archivo de datos comparativos.', 'error');
+            };
+            
+            reader.readAsText(file);
+        });
+
+        // Tabs
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                this.classList.add('active');
+                document.getElementById('tab' + this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1)).classList.add('active');
+            });
+        });
+
+        // Modal
+        function closeDetailModal() {
+            detailModal.style.display = 'none';
+        }
+
+        if (closeModal) {
+            closeModal.onclick = closeDetailModal;
+        }
+
+        window.onclick = function(event) {
+            if (event.target == detailModal) {
+                closeDetailModal();
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape" && detailModal.style.display === 'block') {
+                closeDetailModal();
+            }
+        });
+
+        // Funciones de procesamiento de datos
+        function detectDelimiter(text) {
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return '\t';
+            
+            const firstLine = lines[0];
+            const tabCount = (firstLine.match(/\t/g) || []).length;
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const semicolonCount = (firstLine.match(/;/g) || []).length;
+            
+            if (tabCount > commaCount && tabCount > semicolonCount) return '\t';
+            if (commaCount > tabCount && commaCount > semicolonCount) return ',';
+            if (semicolonCount > tabCount && semicolonCount > commaCount) return ';';
+            
+            return '\t';
+        }
+
+        // Función modificada para detectar columnas automáticamente
+        function detectColumns(headers) {
+            const result = {
+                projectId: null,
+                category: null,
+                subcategory: null,
+                period: null,
+                real: null,
+                ppto: null,
+                prev: null
+            };
+            
+            const projectIdOptions = ['prjid', 'projectid', 'id_proyecto', 'proyecto'];
+            const categoryOptions = ['row', 'categoría', 'categoria', 'category'];
+            const subcategoryOptions = ['column', 'subcategoría', 'subcategoria', 'subcategory'];
+            const periodOptions = ['wks', 'período', 'periodo', 'period', 'date', 'fecha'];
+            const realOptions = ['real', 'valor', 'value', 'importe'];
+            const pptoOptions = ['ppto', 'presupuesto', 'budget
+// Función modificada para detectar columnas automáticamente (continuación)
+        function detectColumns(headers) {
+            const result = {
+                projectId: null,
+                category: null,
+                subcategory: null,
+                period: null,
+                real: null,
+                ppto: null,
+                prev: null
+            };
+            
+            const projectIdOptions = ['prjid', 'projectid', 'id_proyecto', 'proyecto'];
+            const categoryOptions = ['row', 'categoría', 'categoria', 'category'];
+            const subcategoryOptions = ['column', 'subcategoría', 'subcategoria', 'subcategory'];
+            const periodOptions = ['wks', 'período', 'periodo', 'period', 'date', 'fecha'];
+            const realOptions = ['real', 'valor', 'value', 'importe'];
+            const pptoOptions = ['ppto', 'presupuesto', 'budget'];
+            const prevOptions = ['prev', 'previsión', 'prevision', 'forecast'];
+            
+            for (const col of headers) {
+                const lowerCol = col.toLowerCase();
+                if (!result.projectId && projectIdOptions.includes(lowerCol)) result.projectId = col;
+                if (!result.category && categoryOptions.includes(lowerCol)) result.category = col;
+                if (!result.subcategory && subcategoryOptions.includes(lowerCol)) result.subcategory = col;
+                if (!result.period && periodOptions.includes(lowerCol)) result.period = col;
+                if (!result.real && realOptions.includes(lowerCol)) result.real = col;
+                if (!result.ppto && pptoOptions.includes(lowerCol)) result.ppto = col;
+                if (!result.prev && prevOptions.includes(lowerCol)) result.prev = col;
+            }
+            
+            return result;
+        }
+
+        // Función modificada para procesar datos - Ahora con soporte para múltiples valores y proyectos
+        function processTextData(text) {
+            const overlay = showLoadingOverlay();
+            loadingIndicator.style.display = 'block';
+            matrixContainer.style.display = 'none';
+            
+            setTimeout(() => {
+                try {
+                    processData(text);
+                    hideLoadingOverlay(overlay);
+                } catch (error) {
+                    console.error('Error processing data:', error);
+                    showStatus(`Error: ${error.message}`, 'error');
+                    hideLoadingOverlay(overlay);
+                }
+            }, 100);
+        }
+
+        function processData(text) {
+            const delimiter = detectDelimiter(text);
+            const lines = text.split(/\r?\n/);
+            
+            if (lines.length < 2) {
+                throw new Error('No hay suficientes líneas de datos.');
+            }
+            
+            headers = lines[0].split(delimiter).map(h => h.trim());
+            
+            // Verificar columnas requeridas
+            const requiredColumns = ['PrjId', 'Row', 'Column', 'Wks']; // Añadimos PrjId
+            const valueColumns = ['REAL', 'PPTO', 'PREV']; // Nuevas columnas de valores
+            
+            // Detectar columnas o usar las configuradas
+            let prjIdColumn, catColumn, subCatColumn, periodColumn;
+            let realColumn, pptoColumn, prevColumn;
+            
+            if (autoDetectColumns.checked) {
+                const detectedColumns = detectColumns(headers);
+                prjIdColumn = detectedColumns.projectId;
+                catColumn = detectedColumns.category;
+                subCatColumn = detectedColumns.subcategory;
+                periodColumn = detectedColumns.period;
+                realColumn = detectedColumns.real;
+                pptoColumn = detectedColumns.ppto;
+                prevColumn = detectedColumns.prev;
+                
+                // Actualizar los selectores en la interfaz
+                if (prjIdColumn) projectIdColumn.value = prjIdColumn;
+                if (catColumn) categoryColumn.value = catColumn;
+                if (subCatColumn) subcategoryColumn.value = subCatColumn;
+                if (periodColumn) periodColumn.value = periodColumn;
+                if (realColumn) realValueColumn.value = realColumn;
+                if (pptoColumn) pptoValueColumn.value = pptoColumn;
+                if (prevColumn) prevValueColumn.value = prevColumn;
+            } else {
+                prjIdColumn = projectIdColumn.value;
+                catColumn = categoryColumn.value;
+                subCatColumn = subcategoryColumn.value;
+                periodColumn = periodColumn.value;
+                realColumn = realValueColumn.value;
+                pptoColumn = pptoValueColumn.value;
+                prevColumn = prevValueColumn.value;
+            }
+            
+            // Verificar que todas las columnas necesarias estén presentes
+            if (!headers.includes(prjIdColumn)) throw new Error(`No se encontró la columna de proyecto: ${prjIdColumn}`);
+            if (!headers.includes(catColumn)) throw new Error(`No se encontró la columna de categoría: ${catColumn}`);
+            if (!headers.includes(subCatColumn)) throw new Error(`No se encontró la columna de subcategoría: ${subCatColumn}`);
+            if (!headers.includes(periodColumn)) throw new Error(`No se encontró la columna de período: ${periodColumn}`);
+            if (!headers.includes(realColumn)) throw new Error(`No se encontró la columna de valor real: ${realColumn}`);
+            
+            // Las columnas PPTO y PREV pueden ser opcionales
+            const hasPpto = headers.includes(pptoColumn);
+            const hasPrev = headers.includes(prevColumn);
+            
+            const prjIdIndex = headers.indexOf(prjIdColumn);
+            const catIndex = headers.indexOf(catColumn);
+            const subCatIndex = headers.indexOf(subCatColumn);
+            const periodIndex = headers.indexOf(periodColumn);
+            const realIndex = headers.indexOf(realColumn);
+            const pptoIndex = hasPpto ? headers.indexOf(pptoColumn) : -1;
+            const prevIndex = hasPrev ? headers.indexOf(prevColumn) : -1;
+            
+            rawData = [];
+            const prjIdSet = new Set();
+            const catSet = new Set();
+            const subCatSet = new Set();
+            const periodSet = new Set();
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                
+                const values = lines[i].split(delimiter);
+                if (values.length < 4) continue; // Asegurar mínimo de columnas
+                
+                const row = {
+                    projectId: values[prjIdIndex].trim(),
+                    category: values[catIndex].trim(),
+                    subcategory: values[subCatIndex].trim(),
+                    period: values[periodIndex].trim(),
+                    real: parseNumericValue(values[realIndex]),
+                    ppto: hasPpto ? parseNumericValue(values[pptoIndex]) : 0,
+                    prev: hasPrev ? parseNumericValue(values[prevIndex]) : 0
+                };
+                
+                if (isNaN(row.real)) row.real = 0;
+                if (isNaN(row.ppto)) row.ppto = 0;
+                if (isNaN(row.prev)) row.prev = 0;
+                
+                rawData.push(row);
+                prjIdSet.add(row.projectId);
+                catSet.add(row.category);
+                subCatSet.add(row.subcategory);
+                periodSet.add(row.period);
+            }
+            
+            projectIds = Array.from(prjIdSet);
+            categories = Array.from(catSet);
+            subcategories = Array.from(subCatSet);
+            allPeriods = Array.from(periodSet).sort();
+            
+            prepareCellData();
+            generateMatrix();
+            
+            loadingIndicator.style.display = 'none';
+            matrixContainer.style.display = 'block';
+            
+            showStatus(`Datos procesados correctamente: ${rawData.length} registros`, 'success');
+        }
+
+        // Función para procesar datos comparativos desde la segunda estructura
+        function processComparativeData(text) {
+            const delimiter = detectDelimiter(text);
+            const lines = text.split(/\r?\n/);
+            
+            if (lines.length < 2) {
+                throw new Error('No hay suficientes líneas de datos comparativos.');
+            }
+            
+            const headers = lines[0].split(delimiter).map(h => h.trim());
+            
+            // Verificar columnas esenciales
+            const requiredColumns = ['Column', 'PrjId', 'Row', 'REAL', '%PRV/PTO', '%REA/PRV', 'PDTE'];
+            
+            for (const col of requiredColumns) {
+                if (!headers.includes(col)) {
+                    throw new Error(`La columna ${col} no fue encontrada en los datos comparativos.`);
+                }
+            }
+            
+            const colIndex = headers.indexOf('Column');
+            const prjIdIndex = headers.indexOf('PrjId');
+            const rowIndex = headers.indexOf('Row');
+            const realIndex = headers.indexOf('REAL');
+            const prvPtoIndex = headers.indexOf('%PRV/PTO');
+            const realPrvIndex = headers.indexOf('%REA/PRV');
+            const pdteIndex = headers.indexOf('PDTE');
+            
+            // Procesar datos comparativos
+            const comparativeData = {};
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                
+                const values = lines[i].split(delimiter);
+                if (values.length < headers.length) continue;
+                
+                const subcategory = values[colIndex].trim();
+                const projectId = values[prjIdIndex].trim();
+                const category = values[rowIndex].trim();
+                
+                // Crear clave única para identificar la celda
+                const cellKey = `${projectId}|${category}|${subcategory}`;
+                
+                // Parsear valores numéricos
+                const realValue = parseNumericValue(values[realIndex]);
+                let prvPtoPercent = parseNumericValue(values[prvPtoIndex]);
+                let realPrvPercent = parseNumericValue(values[realPrvIndex]);
+                const pendingValue = parseNumericValue(values[pdteIndex]);
+                
+                // Verificar formato de porcentaje
+                if (String(values[prvPtoIndex]).includes('%')) {
+                    prvPtoPercent = prvPtoPercent / 100;
+                }
+                
+                if (String(values[realPrvIndex]).includes('%')) {
+                    realPrvPercent = realPrvPercent / 100;
+                }
+                
+                // Almacenar datos comparativos
+                comparativeData[cellKey] = {
+                    real: realValue,
+                    prvPtoPercent: prvPtoPercent,
+                    realPrvPercent: realPrvPercent,
+                    pending: pendingValue
+                };
+            }
+            
+            // Actualizar los datos de celdas con la información comparativa
+            for (const cellKey in cellData) {
+                if (comparativeData[cellKey]) {
+                    cellData[cellKey].comparative = {
+                        prvPtoPercent: comparativeData[cellKey].prvPtoPercent * 100,
+                        realPrvPercent: comparativeData[cellKey].realPrvPercent * 100,
+                        pending: comparativeData[cellKey].pending
+                    };
+                    
+                    // Actualizar último valor real si es diferente
+                    if (comparativeData[cellKey].real !== 0) {
+                        cellData[cellKey].lastRealValue = comparativeData[cellKey].real;
+                    }
+                }
+            }
+            
+            // Regenerar la matriz con los datos actualizados
+            generateMatrix();
+            
+            showStatus(`Datos comparativos procesados correctamente: ${Object.keys(comparativeData).length} registros`, 'success');
+        }
+
+        // Función modificada para parsear valores numéricos con formato
+        function parseNumericValue(value) {
+            if (!value) return 0;
+            
+            // Manejar valores con comas como separadores de miles
+            const cleanValue = String(value).replace(/\./g, '').replace(/,/g, '.');
+            return parseFloat(cleanValue);
+        }
+
+        // Función modificada para preparar la estructura de datos de las celdas
+        function prepareCellData() {
+            const lastPeriod = allPeriods[allPeriods.length - 1];
+            cellData = {};
+            
+            // Primero, crear estructura de celdas para todos los pares de categoría/subcategoría
+            projectIds.forEach(projectId => {
+                categories.forEach(category => {
+                    subcategories.forEach(subcategory => {
+                        // Crear clave única que incluya el ID del proyecto
+                        const cellKey = `${projectId}|${category}|${subcategory}`;
+                        
+                        // Filtrar datos para esta combinación
+                        const items = rawData.filter(item => 
+                            item.projectId === projectId &&
+                            item.category === category && 
+                            item.subcategory === subcategory
+                        );
+                        
+                        if (items.length > 0) {
+                            // Organizar datos de series temporales
+                            const timeSeries = allPeriods.map(period => {
+                                const periodData = items.find(item => item.period === period);
+                                return {
+                                    period: period,
+                                    real: periodData ? periodData.real : 0,
+                                    ppto: periodData ? periodData.ppto : 0,
+                                    prev: periodData ? periodData.prev : 0
+                                };
+                            });
+                            
+                            // Encontrar últimos valores conocidos
+                            const lastPeriodData = timeSeries.filter(p => p.real !== 0 || p.ppto !== 0 || p.prev !== 0)
+                                                          .sort((a, b) => b.period.localeCompare(a.period))[0] || 
+                                                { real: 0, ppto: 0, prev: 0 };
+                            
+                            // Calcular métricas comparativas
+                            const prvPtoPercent = lastPeriodData.ppto !== 0 ? 
+                                (lastPeriodData.prev / lastPeriodData.ppto * 100) : 0;
+                                
+                            const realPrvPercent = lastPeriodData.prev !== 0 ? 
+                                (lastPeriodData.real / lastPeriodData.prev * 100) : 0;
+                                
+                            const pending = lastPeriodData.prev - lastPeriodData.real;
+                            
+                            // Guardar en la estructura de datos
+                            cellData[cellKey] = {
+                                projectId: projectId,
+                                category: category,
+                                subcategory: subcategory,
+                                timeSeries: timeSeries,
+                                periodsWithData: items.length,
+                                lastRealValue: lastPeriodData.real,
+                                lastPptoValue: lastPeriodData.ppto,
+                                lastPrevValue: lastPeriodData.prev,
+                                comparative: {
+                                    prvPtoPercent: prvPtoPercent,
+                                    realPrvPercent: realPrvPercent,
+                                    pending: pending
+                                }
+                            };
+                        }
+                    });
+                });
+            });
+        }
+// Función actualizada para generar la matriz
+        function generateMatrix() {
+            // Ordenar categorías y subcategorías por valor del último período real
+            const catTotals = {};
+            const subCatTotals = {};
+            
+            Object.values(cellData).forEach(cell => {
+                const { category, subcategory, lastRealValue } = cell;
+                
+                // Acumular por categoría y subcategoría
+                catTotals[category] = (catTotals[category] || 0) + Math.abs(lastRealValue);
+                subCatTotals[subcategory] = (subCatTotals[subcategory] || 0) + Math.abs(lastRealValue);
+            });
+            
+            const sortedCategories = categories.sort((a, b) => 
+                (catTotals[b] || 0) - (catTotals[a] || 0)
+            );
+            
+            const sortedSubcategories = subcategories.sort((a, b) => 
+                (subCatTotals[b] || 0) - (subCatTotals[a] || 0)
+            );
+            
+            // Aplicar filtros
+            const mode = viewMode.value;
+            const maxRowCount = parseInt(maxRows.value);
+            const maxColCount = parseInt(maxCols.value);
+            
+            const visibleCategories = mode === 'top' ? sortedCategories.slice(0, maxRowCount) : sortedCategories;
+            const visibleSubcategories = mode === 'top' ? sortedSubcategories.slice(0, maxColCount) : sortedSubcategories;
+            
+            // Limpiar encabezados anteriores
+            while (headerRow.children.length > 1) {
+                headerRow.removeChild(headerRow.lastChild);
+            }
+            
+            // Añadir selector de proyecto si no existe
+            if (!document.querySelector('.project-selector')) {
+                const projectSelector = document.createElement('div');
+                projectSelector.className = 'project-selector';
+                projectSelector.innerHTML = `
+                    <label>Proyecto:</label>
+                    <select id="projectFilter">
+                        <option value="all">Todos</option>
+                        ${projectIds.map(id => `<option value="${id}">${id}</option>`).join('')}
+                    </select>
+                `;
+                
+                document.querySelector('.controls').prepend(projectSelector);
+                
+                document.getElementById('projectFilter').addEventListener('change', updateMatrixByProject);
+            }
+            
+            // Agregar encabezados de subcategorías
+            visibleSubcategories.forEach(subcategory => {
+                const th = document.createElement('th');
+                th.textContent = subcategory;
+                headerRow.appendChild(th);
+            });
+            
+            // Limpiar filas anteriores
+            tableBody.innerHTML = '';
+            
+            // Agregar filas para cada categoría
+            visibleCategories.forEach(category => {
+                const tr = document.createElement('tr');
+                
+                // Celda de categoría
+                const tdCategory = document.createElement('td');
+                tdCategory.textContent = category;
+                tdCategory.style.fontWeight = 'bold';
+                tr.appendChild(tdCategory);
+                
+                // Celdas para cada subcategoría
+                visibleSubcategories.forEach(subcategory => {
+                    const td = document.createElement('td');
+                    
+                    // Buscar los datos para todos los proyectos para esta combinación
+                    const projectCells = [];
+                    projectIds.forEach(projectId => {
+                        const cellKey = `${projectId}|${category}|${subcategory}`;
+                        if (cellData[cellKey]) {
+                            projectCells.push(cellData[cellKey]);
+                        }
+                    });
+                    
+                    if (projectCells.length === 0) {
+                        td.textContent = '-';
+                    } else {
+                        // Crear contenido de la celda con datos comparativos
+                        const cellContent = document.createElement('div');
+                        cellContent.className = 'cell-content';
+                        cellContent.setAttribute('role', 'button');
+                        cellContent.setAttribute('tabindex', '0');
+                        
+                        // Totales acumulados de todos los proyectos
+                        const totalReal = projectCells.reduce((sum, cell) => sum + cell.lastRealValue, 0);
+                        const totalPpto = projectCells.reduce((sum, cell) => sum + cell.lastPptoValue, 0);
+                        const totalPrev = projectCells.reduce((sum, cell) => sum + cell.lastPrevValue, 0);
+                        const totalPending = totalPrev - totalReal; // Diferencia entre previsión y real (PDTE)
+                        
+                        // Valor del último período (REAL)
+                        const valueDiv = document.createElement('div');
+                        valueDiv.className = totalReal >= 0 ? 'cell-value positive' : 'cell-value negative';
+                        valueDiv.textContent = formatValue(totalReal);
+                        cellContent.appendChild(valueDiv);
+                        
+                        // Añadir indicadores comparativos con etiquetas
+                        const comparativeDiv = document.createElement('div');
+                        comparativeDiv.className = 'cell-comparative';
+                        
+                        // Calcular porcentajes
+                        const prvPtoPercent = totalPpto !== 0 ? (totalPrev / totalPpto * 100) : 0;
+                        const realPrvPercent = totalPrev !== 0 ? (totalReal / totalPrev * 100) : 0;
+                        
+                        // Determinar clases para los colores (invertimos la lógica según el contexto)
+                        // Para PRV/PTO: valores >100% son negativos (se gasta más de lo presupuestado)
+                        // Para REA/PRV: valores >100% son positivos (se gasta menos de lo previsto)
+                        const prvPtoClass = prvPtoPercent > 100 ? 'negative' : 'positive';
+                        const realPrvClass = realPrvPercent > 100 ? (totalReal >= 0 ? 'negative' : 'positive') : (totalReal >= 0 ? 'positive' : 'negative');
+                        const pendingClass = totalPending < 0 ? 'negative' : 'positive';
+                        
+                        comparativeDiv.innerHTML = `
+                            <div class="comp-item ${prvPtoClass}">
+                                <span class="comp-label">PRV/PTO:</span> 
+                                <span class="comp-value">${prvPtoPercent.toFixed(1)}%</span>
+                            </div>
+                            <div class="comp-item ${realPrvClass}">
+                                <span class="comp-label">REA/PRV:</span> 
+                                <span class="comp-value">${realPrvPercent.toFixed(1)}%</span>
+                            </div>
+                            <div class="comp-item ${pendingClass}">
+                                <span class="comp-label">PDTE:</span> 
+                                <span class="comp-value">${formatShortValue(totalPending)}</span>
+                            </div>
+                        `;
+                        cellContent.appendChild(comparativeDiv);
+                        
+                        // Añadir gráfico miniatura
+                        const chartDiv = document.createElement('div');
+                        chartDiv.className = 'mini-chart';
+                        chartDiv.id = `chart-${category.replace(/\s+/g, '-')}-${subcategory.replace(/\s+/g, '-')}`;
+                        cellContent.appendChild(chartDiv);
+                        
+                        // Período mostrado
+                        const periodsDiv = document.createElement('div');
+                        periodsDiv.className = 'cell-periods';
+                        periodsDiv.textContent = allPeriods[allPeriods.length - 1];
+                        cellContent.appendChild(periodsDiv);
+                        
+                        td.appendChild(cellContent);
+                        
+                        // Añadir tooltip
+                        td.setAttribute('title', `
+                            Categoría: ${category}
+                            Subcategoría: ${subcategory}
+                            Real: ${formatCurrency(totalReal)}
+                            Presupuesto: ${formatCurrency(totalPpto)}
+                            Previsión: ${formatCurrency(totalPrev)}
+                            PRV/PTO: ${prvPtoPercent.toFixed(2)}%
+                            REA/PRV: ${realPrvPercent.toFixed(2)}%
+                            Pendiente: ${formatCurrency(totalPending)}
+                            
+                            Click para ver detalle
+                            Doble click para gráfico completo
+                        `);
+                        
+                        // Almacenar datos de proyectos para esta celda
+                        td.dataset.projectCells = JSON.stringify(projectCells.map(cell => cell.projectId));
+                        td.dataset.category = category;
+                        td.dataset.subcategory = subcategory;
+                        
+                        // Añadir evento de clic para mostrar detalle
+                        td.style.cursor = 'pointer';
+                        td.addEventListener('click', (e) => {
+                            const projectIds = JSON.parse(td.dataset.projectCells);
+                            const category = td.dataset.category;
+                            const subcategory = td.dataset.subcategory;
+                            
+                            showDetail(category, subcategory, projectIds);
+                        });
+                        
+                        // Añadir evento de teclado para accesibilidad
+                        td.addEventListener('keypress', (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                const projectIds = JSON.parse(td.dataset.projectCells);
+                                const category = td.dataset.category;
+                                const subcategory = td.dataset.subcategory;
+                                
+                                showDetail(category, subcategory, projectIds);
+                            }
+                        });
+                    }
+                    
+                    tr.appendChild(td);
+                });
+                
+                tableBody.appendChild(tr);
+            });
+            
+            // Dibujar mini gráficos después de que se ha renderizado la tabla
+            setTimeout(() => {
+                visibleCategories.forEach(category => {
+                    visibleSubcategories.forEach(subcategory => {
+                        const chartId = `chart-${category.replace(/\s+/g, '-')}-${subcategory.replace(/\s+/g, '-')}`;
+                        const chartContainer = document.getElementById(chartId);
+                        
+                        if (chartContainer) {
+                            // Recopilar datos de todos los proyectos para esta combinación
+                            const timeSeriesData = [];
+                            
+                            allPeriods.forEach(period => {
+                                const periodData = {
+                                    period: period,
+                                    real: 0,
+                                    ppto: 0,
+                                    prev: 0
+                                };
+                                
+                                // Sumar valores de todos los proyectos
+                                projectIds.forEach(projectId => {
+                                    const cellKey = `${projectId}|${category}|${subcategory}`;
+                                    if (cellData[cellKey]) {
+                                        const periodSeries = cellData[cellKey].timeSeries.find(p => p.period === period);
+                                        if (periodSeries) {
+                                            periodData.real += periodSeries.real;
+                                            periodData.ppto += periodSeries.ppto;
+                                            periodData.prev += periodSeries.prev;
+                                        }
+                                    }
+                                });
+                                
+                                timeSeriesData.push(periodData);
+                            });
+                            
+                            // Solo mostrar los últimos períodos para los mini-gráficos
+                            const recentPeriods = timeSeriesData.slice(-10);
+                            
+                            // Determinar dirección (positivo o negativo) basado en valores reales
+                            const isPositive = timeSeriesData.reduce((sum, d) => sum + d.real, 0) >= 0;
+                            
+                            drawMiniChart(chartContainer, recentPeriods, isPositive);
+                        }
+                    });
+                });
+            }, 100);
+        }
+
+        // Función para actualizar la matriz según el proyecto seleccionado
+        function updateMatrixByProject() {
+            const selectedProject = document.getElementById('projectFilter').value;
+            
+            // Filtrar datos si se seleccionó un proyecto específico
+            if (selectedProject !== 'all') {
+                // Mostrar solo datos del proyecto seleccionado
+                const filteredCellData = {};
+                
+                Object.keys(cellData).forEach(key => {
+                    if (key.startsWith(selectedProject + '|')) {
+                        filteredCellData[key] = cellData[key];
+                    }
+                });
+                
+                // Guardar temporalmente los datos completos
+                const originalCellData = cellData;
+                cellData = filteredCellData;
+                
+                // Regenerar la matriz
+                generateMatrix();
+                
+                // Restaurar los datos completos
+                cellData = originalCellData;
+            } else {
+                // Mostrar todos los proyectos
+                generateMatrix();
+            }
+        }
+
+        // Función modificada para mostrar detalle con múltiples proyectos
+        function showDetail(category, subcategory, projectIds) {
+            try {
+                // Asegurarse de que el modal comienza oculto
+                detailModal.style.display = 'none';
+                
+                // Actualizar título
+                modalTitle.textContent = `${category} × ${subcategory}`;
+                
+                // Mostrar placeholder y status inicial
+                detailChart.innerHTML = '<div class="chart-placeholder">Cargando gráfico...</div>';
+                chartStatus.textContent = 'Preparando visualización...';
+                
+                // Obtener datos de todos los proyectos solicitados
+                const projectCells = [];
+                
+                projectIds.forEach(projectId => {
+                    const cellKey = `${projectId}|${category}|${subcategory}`;
+                    if (cellData[cellKey]) {
+                        projectCells.push(cellData[cellKey]);
+                    }
+                });
+                
+                if (projectCells.length === 0) {
+                    chartStatus.textContent = 'No hay datos disponibles para mostrar';
+                    return;
+                }
+                
+                // Tabla de valores
+                let tableHtml = `
+                    <table style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>Proyecto</th>
+                                <th>Período</th>
+                                <th>Real</th>
+                                <th>Presupuesto</th>
+                                <th>Previsión</th>
+                                <th>PRV/PTO</th>
+                                <th>REA/PRV</th>
+                                <th>Pendiente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                // Organizar datos por proyecto y período
+                projectCells.forEach(cell => {
+                    // Solo mostrar períodos con valores
+                    const validPeriods = cell.tim
+// Continuación de la función showDetail
+        function showDetail(category, subcategory, projectIds) {
+            try {
+                // Asegurarse de que el modal comienza oculto
+                detailModal.style.display = 'none';
+                
+                // Actualizar título
+                modalTitle.textContent = `${category} × ${subcategory}`;
+                
+                // Mostrar placeholder y status inicial
+                detailChart.innerHTML = '<div class="chart-placeholder">Cargando gráfico...</div>';
+                chartStatus.textContent = 'Preparando visualización...';
+                
+                // Obtener datos de todos los proyectos solicitados
+                const projectCells = [];
+                
+                projectIds.forEach(projectId => {
+                    const cellKey = `${projectId}|${category}|${subcategory}`;
+                    if (cellData[cellKey]) {
+                        projectCells.push(cellData[cellKey]);
+                    }
+                });
+                
+                if (projectCells.length === 0) {
+                    chartStatus.textContent = 'No hay datos disponibles para mostrar';
+                    return;
+                }
+                
+                // Tabla de valores
+                let tableHtml = `
+                    <table style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>Proyecto</th>
+                                <th>Período</th>
+                                <th>Real</th>
+                                <th>Presupuesto</th>
+                                <th>Previsión</th>
+                                <th>PRV/PTO</th>
+                                <th>REA/PRV</th>
+                                <th>Pendiente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                // Organizar datos por proyecto y período
+                projectCells.forEach(cell => {
+                    // Solo mostrar períodos con valores
+                    const validPeriods = cell.timeSeries.filter(p => p.real !== 0 || p.ppto !== 0 || p.prev !== 0);
+                    
+                    validPeriods.forEach(point => {
+                        const prvPtoPercent = point.ppto !== 0 ? (point.prev / point.ppto * 100).toFixed(2) + '%' : 'N/A';
+                        const realPrvPercent = point.prev !== 0 ? (point.real / point.prev * 100).toFixed(2) + '%' : 'N/A';
+                        const pending = point.prev - point.real;
+                        
+                        tableHtml += `
+                            <tr>
+                                <td>${cell.projectId}</td>
+                                <td>${point.period}</td>
+                                <td style="text-align:right;${point.real < 0 ? 'color:#dc2626;' : 'color:#1d4ed8;'}">${formatCurrency(point.real)}</td>
+                                <td style="text-align:right;">${formatCurrency(point.ppto)}</td>
+                                <td style="text-align:right;">${formatCurrency(point.prev)}</td>
+                                <td style="text-align:right;">${prvPtoPercent}</td>
+                                <td style="text-align:right;">${realPrvPercent}</td>
+                                <td style="text-align:right;${pending < 0 ? 'color:#dc2626;' : 'color:#1d4ed8;'}">${formatCurrency(pending)}</td>
+                            </tr>
+                        `;
+                    });
+                });
+                
+                tableHtml += `
+                        </tbody>
+                    </table>
+                    <div style="text-align:center; margin-top:20px;">
+                        <button id="closeModalButton" style="background-color:#64748b;">Cerrar</button>
+                        <button id="exportDetailButton" style="background-color:#059669;">Exportar Datos</button>
+                    </div>
+                `;
+                
+                detailTable.innerHTML = tableHtml;
+                
+                // Agregar evento al botón adicional
+                setTimeout(() => {
+                    const closeModalButton = document.getElementById('closeModalButton');
+                    if (closeModalButton) {
+                        closeModalButton.addEventListener('click', closeDetailModal);
+                    }
+                    
+                    const exportDetailButton = document.getElementById('exportDetailButton');
+                    if (exportDetailButton) {
+                        exportDetailButton.addEventListener('click', () => {
+                            exportDetailData(category, subcategory, projectIds);
+                        });
+                    }
+                }, 100);
+                
+                // Mostrar el modal
+                detailModal.style.display = 'block';
+                
+                // Recopilar datos para el gráfico
+                const timeSeriesData = [];
+                
+                allPeriods.forEach(period => {
+                    const periodData = {
+                        period: period,
+                        real: 0,
+                        ppto: 0,
+                        prev: 0
+                    };
+                    
+                    // Sumar valores de todos los proyectos
+                    projectIds.forEach(projectId => {
+                        const cellKey = `${projectId}|${category}|${subcategory}`;
+                        if (cellData[cellKey]) {
+                            const periodSeries = cellData[cellKey].timeSeries.find(p => p.period === period);
+                            if (periodSeries) {
+                                periodData.real += periodSeries.real;
+                                periodData.ppto += periodSeries.ppto;
+                                periodData.prev += periodSeries.prev;
+                            }
+                        }
+                    });
+                    
+                    timeSeriesData.push(periodData);
+                });
+                
+                // Dibujar gráfico detallado
+                drawDetailChart(detailChart, timeSeriesData);
+                
+                chartStatus.textContent = `Mostrando datos de ${projectIds.length} proyecto(s) para ${category} × ${subcategory}`;
+                
+            } catch (error) {
+                console.error('Error showing detail:', error);
+                chartStatus.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Función para exportar datos detallados a CSV
+        function exportDetailData(category, subcategory, projectIds) {
+            try {
+                // Recopilar datos de todos los proyectos
+                const exportData = [];
+                const headerRow = ['Proyecto', 'Categoría', 'Subcategoría', 'Período', 'Real', 'Presupuesto', 'Previsión', 'PRV/PTO', 'REA/PRV', 'Pendiente'];
+                
+                projectIds.forEach(projectId => {
+                    const cellKey = `${projectId}|${category}|${subcategory}`;
+                    if (cellData[cellKey]) {
+                        const cell = cellData[cellKey];
+                        
+                        // Añadir cada período como una fila
+                        cell.timeSeries.forEach(point => {
+                            const prvPtoPercent = point.ppto !== 0 ? (point.prev / point.ppto * 100) : 0;
+                            const realPrvPercent = point.prev !== 0 ? (point.real / point.prev * 100) : 0;
+                            const pending = point.prev - point.real;
+                            
+                            exportData.push([
+                                projectId,
+                                category,
+                                subcategory,
+                                point.period,
+                                point.real,
+                                point.ppto,
+                                point.prev,
+                                prvPtoPercent.toFixed(2),
+                                realPrvPercent.toFixed(2),
+                                pending
+                            ]);
+                        });
+                    }
+                });
+                
+                // Convertir a CSV
+                let csvContent = headerRow.join(',') + '\n';
+                csvContent += exportData.map(row => row.join(',')).join('\n');
+                
+                // Descargar archivo
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `detalle_${category}_${subcategory}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showStatus('Datos exportados correctamente', 'success');
+                
+            } catch (error) {
+                console.error('Error exporting data:', error);
+                showStatus(`Error al exportar datos: ${error.message}`, 'error');
+            }
+        }
+
+        // Función para dibujar gráficos en miniaturas
+        function drawMiniChart(container, data, isPositive = true) {
+            // Si no hay datos, no dibujar nada
+            if (!data || data.length === 0 || !container) {
+                return;
+            }
+            
+            // Filtrar sólo los períodos que tienen datos
+            const validData = data.filter(d => d.real !== 0 || d.ppto !== 0 || d.prev !== 0);
+            if (validData.length === 0) return;
+            
+            // Limpiar el contenedor
+            container.innerHTML = '';
+            
+            // Configurar dimensiones
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const margin = { top: 0, right: 0, bottom: 0, left: 0 };
+            
+            // Crear SVG
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Configurar escalas
+            const x = d3.scaleBand()
+                .domain(validData.map(d => d.period))
+                .range([0, width])
+                .padding(0.1);
+            
+            // Encontrar el valor máximo y mínimo para la escala Y
+            const maxValue = d3.max(validData, d => Math.max(d.real, d.ppto, d.prev));
+            const minValue = d3.min(validData, d => Math.min(d.real, d.ppto, d.prev));
+            const yDomain = [Math.min(0, minValue), Math.max(0, maxValue)];
+            
+            const y = d3.scaleLinear()
+                .domain(yDomain)
+                .range([height, 0]);
+            
+            // Dibujar líneas
+            const line = d3.line()
+                .x(d => x(d.period) + x.bandwidth() / 2)
+                .y(d => y(d.real));
+            
+            // Línea principal (REAL)
+            svg.append('path')
+                .datum(validData)
+                .attr('fill', 'none')
+                .attr('stroke', isPositive ? '#3b82f6' : '#ef4444')
+                .attr('stroke-width', 1.5)
+                .attr('d', line);
+            
+            // Crear líneas de guía para PPTO y PREV
+            const linePpto = d3.line()
+                .x(d => x(d.period) + x.bandwidth() / 2)
+                .y(d => y(d.ppto));
+            
+            const linePrev = d3.line()
+                .x(d => x(d.period) + x.bandwidth() / 2)
+                .y(d => y(d.prev));
+            
+            // Línea de presupuesto
+            svg.append('path')
+                .datum(validData)
+                .attr('fill', 'none')
+                .attr('stroke', '#94a3b8')
+                .attr('stroke-width', 0.5)
+                .attr('stroke-dasharray', '2,2')
+                .attr('d', linePpto);
+            
+            // Línea de previsión
+            svg.append('path')
+                .datum(validData)
+                .attr('fill', 'none')
+                .attr('stroke', '#64748b')
+                .attr('stroke-width', 0.5)
+                .attr('d', linePrev);
+        }
+
+        // Función para dibujar gráfico detallado
+        function drawDetailChart(container, data) {
+            // Si no hay datos, mostrar mensaje
+            if (!data || data.length === 0 || !container) {
+                container.innerHTML = '<div class="chart-placeholder">No hay datos disponibles para visualizar</div>';
+                return;
+            }
+            
+            // Filtrar sólo los períodos que tienen datos
+            const validData = data.filter(d => d.real !== 0 || d.ppto !== 0 || d.prev !== 0);
+            if (validData.length === 0) {
+                container.innerHTML = '<div class="chart-placeholder">No hay datos válidos para visualizar</div>';
+                return;
+            }
+            
+            // Limpiar el contenedor
+            container.innerHTML = '';
+            
+            // Configurar dimensiones
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+            
+            // Crear SVG
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Configurar escalas
+            const x = d3.scaleBand()
+                .domain(validData.map(d => d.period))
+                .range([0, innerWidth])
+                .padding(0.2);
+            
+            // Encontrar el valor máximo y mínimo para la escala Y
+            const maxValue = d3.max(validData, d => Math.max(d.real, d.ppto, d.prev));
+            const minValue = d3.min(validData, d => Math.min(d.real, d.ppto, d.prev));
+            const yDomain = [
+                Math.min(0, minValue) * 1.1, // 10% adicional para visualización
+                Math.max(0, maxValue) * 1.1
+            ];
+            
+            const y = d3.scaleLinear()
+                .domain(yDomain)
+                .range([innerHeight, 0]);
+            
+            // Añadir ejes
+            svg.append('g')
+                .attr('transform', `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x))
+                .selectAll('text')
+                .style('text-anchor', 'end')
+                .attr('transform', 'rotate(-45)')
+                .attr('dx', '-.8em')
+                .attr('dy', '.15em');
+            
+            svg.append('g')
+                .call(d3.axisLeft(y)
+                    .tickFormat(d => formatShortValue(d)))
+                .append('text')
+                .attr('fill', '#000')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', -50)
+                .attr('x', -innerHeight / 2)
+                .attr('text-anchor', 'middle')
+                .text('Valor');
+            
+            // Dibujar línea cero
+            svg.append('line')
+                .attr('x1', 0)
+                .attr('y1', y(0))
+                .attr('x2', innerWidth)
+                .attr('y2', y(0))
+                .attr('stroke', '#cbd5e1')
+                .attr('stroke-width', 1);
+            
+            // Dibujar barras para valores reales
+            svg.selectAll('.bar')
+                .data(validData)
+                .enter()
+                .append('rect')
+                .attr('class', 'bar')
+                .attr('x', d => x(d.period))
+                .attr('width', x.bandwidth())
+                .attr('y', d => y(Math.max(0, d.real)))
+                .attr('height', d => Math.abs(y(d.real) - y(0)))
+                .attr('fill', d => d.real >= 0 ? '#93c5fd' : '#fca5a5')
+                .attr('stroke', d => d.real >= 0 ? '#3b82f6' : '#ef4444')
+                .attr('stroke-width', 1);
+            
+            // Crear líneas de guía para PPTO y PREV
+            const linePpto = d3.line()
+                .x(d => x(d.period) + x.bandwidth() / 2)
+                .y(d => y(d.ppto));
+            
+            const linePrev = d3.line()
+                .x(d => x(d.period) + x.bandwidth() / 2)
+                .y(d => y(d.prev));
+            
+            // Línea de presupuesto
+            svg.append('path')
+                .datum(validData)
+                .attr('fill', 'none')
+                .attr('stroke', '#475569')
+                .attr('stroke-width', 2)
+                .attr('stroke-dasharray', '5,5')
+                .attr('d', linePpto);
+            
+            // Línea de previsión
+            svg.append('path')
+                .datum(validData)
+                .attr('fill', 'none')
+                .attr('stroke', '#0f766e')
+                .attr('stroke-width', 2)
+                .attr('d', linePrev);
+            
+            // Añadir leyenda
+            const legend = svg.append('g')
+                .attr('transform', `translate(${innerWidth - 150}, 0)`);
+            
+            // Leyenda para REAL
+            legend.append('rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', 15)
+                .attr('height', 15)
+                .attr('fill', '#93c5fd')
+                .attr('stroke', '#3b82f6');
+            
+            legend.append('text')
+                .attr('x', 20)
+                .attr('y', 12)
+                .text('Real')
+                .style('font-size', '12px');
+            
+            // Leyenda para PPTO
+            legend.append('line')
+                .attr('x1', 0)
+                .attr('y1', 30)
+                .attr('x2', 15)
+                .attr('y2', 30)
+                .attr('stroke', '#475569')
+                .attr('stroke-width', 2)
+                .attr('stroke-dasharray', '5,5');
+            
+            legend.append('text')
+                .attr('x', 20)
+                .attr('y', 34)
+                .text('Presupuesto')
+                .style('font-size', '12px');
+            
+            // Leyenda para PREV
+            legend.append('line')
+                .attr('x1', 0)
+                .attr('y1', 50)
+                .attr('x2', 15)
+                .attr('y2', 50)
+                .attr('stroke', '#0f766e')
+                .attr('stroke-width', 2);
+            
+            legend.append('text')
+                .attr('x', 20)
+                .attr('y', 54)
+                .text('Previsión')
+                .style('font-size', '12px');
+            
+            // Añadir tooltip interactivo
+            const tooltip = d3.select('body').append('div')
+                .attr('class', 'tooltip')
+                .style('position', 'absolute')
+                .style('background', 'white')
+                .style('padding', '10px')
+                .style('border-radius', '5px')
+                .style('box-shadow', '0 0 10px rgba(0,0,0,0.1)')
+                .style('pointer-events', 'none')
+                .style('opacity', 0);
+            
+            svg.selectAll('.bar')
+                .on('mouseover', function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style('opacity', .9);
+                    tooltip.html(`
+                        Período: <b>${d.period}</b><br/>
+                        Real: <b>${formatCurrency(d.real)}</b><br/>
+                        Presupuesto: <b>${formatCurrency(d.ppto)}</b><br/>
+                        Previsión: <b>${formatCurrency(d.prev)}</b><br/>
+                        Pendiente: <b>${formatCurrency(d.prev - d.real)}</b>
+                    `)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                });
+        }
+
+        // Función para cargar datos de ejemplo
+        function loadSampleData() {
+            // Datos de ejemplo para demostración
+            const sampleData = `PrjId\tRow\tColumn\tWks\tREAL\tPPTO\tPREV
+PRJ001\tGastos Personal\tSalarios\tEnero\t45000\t42000\t44000
+PRJ001\tGastos Personal\tSalarios\tFebrero\t46200\t42000\t45000
+PRJ001\tGastos Personal\tSalarios\tMarzo\t47500\t42000\t46000
+PRJ001\tGastos Personal\tBonificaciones\tEnero\t8000\t5000\t7000
+PRJ001\tGastos Personal\tBonificaciones\tFebrero\t8500\t5000\t8000
+PRJ001\tGastos Personal\tBonificaciones\tMarzo\t9200\t5000\t9000
+PRJ001\tGastos Operativos\tOficina\tEnero\t15000\t12000\t14000
+PRJ001\tGastos Operativos\tOficina\tFebrero\t14800\t12000\t14500
+PRJ001\tGastos Operativos\tOficina\tMarzo\t16200\t12000\t15000
+PRJ001\tGastos Operativos\tViajes\tEnero\t5000\t4000\t4800
+PRJ001\tGastos Operativos\tViajes\tFebrero\t6200\t4000\t5500
+PRJ001\tGastos Operativos\tViajes\tMarzo\t7500\t4000\t7000
+PRJ001\tIngresos\tVentas Producto A\tEnero\t-75000\t-80000\t-78000
+PRJ001\tIngresos\tVentas Producto A\tFebrero\t-78500\t-80000\t-80000
+PRJ001\tIngresos\tVentas Producto A\tMarzo\t-82000\t-80000\t-82000
+PRJ001\tIngresos\tVentas Producto B\tEnero\t-45000\t-50000\t-48000
+PRJ001\tIngresos\tVentas Producto B\tFebrero\t-47000\t-50000\t-49000
+PRJ001\tIngresos\tVentas Producto B\tMarzo\t-51000\t-50000\t-52000
+PRJ002\tGastos Personal\tSalarios\tEnero\t32000\t30000\t32000
+PRJ002\tGastos Personal\tSalarios\tFebrero\t32500\t30000\t33000
+PRJ002\tGastos Personal\tSalarios\tMarzo\t33000\t30000\t33500
+PRJ002\tGastos Operativos\tOficina\tEnero\t8000\t7000\t8000
+PRJ002\tGastos Operativos\tOficina\tFebrero\t8200\t7000\t8300
+PRJ002\tGastos Operativos\tOficina\tMarzo\t8500\t7000\t8600
+PRJ002\tIngresos\tVentas Servicios\tEnero\t-55000\t-60000\t-58000
+PRJ002\tIngresos\tVentas Servicios\tFebrero\t-58000\t-60000\t-59000
+PRJ002\tIngresos\tVentas Servicios\tMarzo\t-62000\t-60000\t-63000`;
+            
+            dataInput.value = sampleData;
+            showStatus('Datos de ejemplo cargados. Haz clic en "Procesar Datos" para visualizarlos.');
+        }
+
+        // Funciones de formateo de valores
+        function formatValue(value) {
+            if (Math.abs(value) >= 1000000) {
+                return (value / 1000000).toFixed(1) + 'M';
+            } else if (Math.abs(value) >= 1000) {
+                return (value / 1000).toFixed(1) + 'K';
+            } else {
+                return value.toFixed(0);
+            }
+        }
+
+        function formatShortValue(value) {
+            if (Math.abs(value) >= 1000000) {
+                return (value / 1000000).toFixed(1) + 'M';
+            } else if (Math.abs(value) >= 1000) {
+                return (value / 1000).toFixed(1) + 'K';
+            } else {
+                return value.toFixed(0);
+            }
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('es-ES', {
+                style: 'currency',
+                currency: 'EUR',
+                minimumFractionDigits: 2
+            }).format(value);
+        }
+
+        // Inicializar la interfaz
+        window.addEventListener('DOMContentLoaded', function() {
+            // Configurar selectores
+            autoDetectColumns.dispatchEvent(new Event('change'));
+            
+            // Añadir eventos para cambio de filtros
+            viewMode.addEventListener('change', debounce(generateMatrix, 300));
+            maxRows.addEventListener('change', debounce(generateMatrix, 300));
+            maxCols.addEventListener('change', debounce(generateMatrix, 300));
+            
+            // Mostrar mensaje de bienvenida
+            showStatus('Bienvenido al Cuadro de Mando Comparativo. Carga tus datos para comenzar.');
+        });
+    </script>
+</body>
+</html>

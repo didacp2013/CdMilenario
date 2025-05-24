@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuadro de Mando - Último Período</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #1e3a8a;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+        }
+        
+        button:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+        
+        .file-upload {
+            background-color: #f1f5f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .file-input-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .file-input-container input {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+        }
+        
+        th {
+            background-color: #f1f5f9;
+            text-align: center;
+        }
+        
+        .mini-chart {
+            height: 40px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        .cell-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .cell-content:focus-within {
+            outline: 2px solid #3b82f6;
+            border-radius: 4px;
+        }
+        
+        .cell-value {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .positive {
+            color: #1d4ed8;
+        }
+        
+        .negative {
+            color: #dc2626;
+        }
+        
+        .cell-periods {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 3px;
+        }
+        
+        #loadingIndicator {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #matrixContainer {
+            display: none;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 20px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .detail-chart {
+            height: 300px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        
+        .status-indicator {
+            display: none;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        
+        .control-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+        
+        select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+        
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cuadro de Mando - Último Período</h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="fileUpload">Cargar Archivo</div>
+            <div class="tab" data-tab="pasteData">Pegar Datos</div>
+            <div class="tab" data-tab="options">Opciones</div>
+        </div>
+        
+        <div id="tabFileUpload" class="tab-content active">
+            <h2>Cargar desde archivo TXT</h2>
+            <div class="file-upload">
+                <p>Selecciona un archivo de datos en formato TXT con columnas separadas por tabulación:</p>
+                <div class="file-input-container">
+                    <input type="file" id="fileInput" accept=".txt" />
+                    <button id="btnLoadFile">Cargar Archivo</button>
+                </div>
+                <p><small>El archivo debe incluir las columnas: Row, Column, Wks, Value</small></p>
+            </div>
+        </div>
+        
+        <div id="tabPasteData" class="tab-content">
+            <h2>Pegar datos manualmente</h2>
+            <p>Copia los datos desde Excel y pégalos aquí:</p>
+            <textarea id="dataInput" placeholder="Pega aquí los datos desde Excel"></textarea>
+            <div>
+                <button id="btnLoadSample">Cargar Datos de Ejemplo</button>
+                <button id="btnProcessData">Procesar Datos</button>
+            </div>
+        </div>
+        
+        <div id="tabOptions" class="tab-content">
+            <h2>Opciones Avanzadas</h2>
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                <h3>Columnas de datos</h3>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div>
+                        <label>Columna para Categorías:</label>
+                        <select id="categoryColumn">
+                            <option value="Row">Row</option>
+                            <option value="Categoría">Categoría</option>
+                            <option value="Categoria">Categoria</option>
+                            <option value="Category">Category</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Subcategorías:</label>
+                        <select id="subcategoryColumn">
+                            <option value="Column">Column</option>
+                            <option value="Subcategoría">Subcategoría</option>
+                            <option value="Subcategoria">Subcategoria</option>
+                            <option value="Subcategory">Subcategory</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Períodos:</label>
+                        <select id="periodColumn">
+                            <option value="Wks">Wks</option>
+                            <option value="Período">Período</option>
+                            <option value="Periodo">Periodo</option>
+                            <option value="Period">Period</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Columna para Valores:</label>
+                        <select id="valueColumn">
+                            <option value="Value">Value</option>
+                            <option value="Valor">Valor</option>
+                            <option value="Amount">Amount</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="checkbox" id="autoDetectColumns" checked>
+                        Detectar columnas automáticamente
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div id="statusIndicator" class="status-indicator"></div>
+        
+        <div id="loadingIndicator">
+            <p>Procesando datos...</p>
+        </div>
+        
+        <div id="matrixContainer">
+            <h2>Matriz de Visualización</h2>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label class="control-label">Mostrar:</label>
+                    <select id="viewMode">
+                        <option value="top">Top categorías y subcategorías</option>
+                        <option value="all">Todas las categorías y subcategorías</option>
+                    </select>
+                </div>
+                
+                <div class="control-group" id="rowsControl">
+                    <label class="control-label">Filas (max):</label>
+                    <select id="maxRows">
+                        <option value="5">5 filas</option>
+                        <option value="10" selected>10 filas</option>
+                        <option value="15">15 filas</option>
+                        <option value="20">20 filas</option>
+                    </select>
+                </div>
+                
+                <div class="control-group" id="colsControl">
+                    <label class="control-label">Columnas (max):</label>
+                    <select id="maxCols">
+                        <option value="4">4 columnas</option>
+                        <option value="6">6 columnas</option>
+                        <option value="8" selected>8 columnas</option>
+                        <option value="10">10 columnas</option>
+                    </select>
+                </div>
+            </div>
+            
+            <table id="matrixTable">
+                <thead>
+                    <tr id="headerRow">
+                        <th>Categoría / Subcategoría</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                <div style="display: flex; gap: 20px;">
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 12px; height: 12px; background-color: #3b82f6; margin-right: 5px; border-radius: 2px;"></div>
+                        <span style="font-size: 12px;">Valores positivos: Costes/Gastos</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 12px; height: 12px; background-color: #ef4444; margin-right: 5px; border-radius: 2px;"></div>
+                        <span style="font-size: 12px;">Valores negativos: Ingresos/Ajustes</span>
+                    </div>
+                </div>
+                
+                <p style="font-size: 12px; color: #64748b; margin: 0;">
+                    Haz clic en cualquier celda para ver el detalle
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2 id="modalTitle">Detalle</h2>
+            <div class="detail-chart" id="detailChart">
+                <div class="chart-placeholder">Cargando gráfico...</div>
+            </div>
+            <div id="chartStatus" style="text-align: center; color: #64748b; margin: 10px 0; font-size: 12px;"></div>
+            <div id="detailTable"></div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+        // Referencias a elementos DOM
+        const fileInput = document.getElementById('fileInput');
+        const btnLoadFile = document.getElementById('btnLoadFile');
+        const dataInput = document.getElementById('dataInput');
+        const btnLoadSample = document.getElementById('btnLoadSample');
+        const btnProcessData = document.getElementById('btnProcessData');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const matrixContainer = document.getElementById('matrixContainer');
+        const headerRow = document.getElementById('headerRow');
+        const tableBody = document.getElementById('tableBody');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const viewMode = document.getElementById('viewMode');
+        const maxRows = document.getElementById('maxRows');
+        const maxCols = document.getElementById('maxCols');
+        
+        // Opciones avanzadas
+        const categoryColumn = document.getElementById('categoryColumn');
+        const subcategoryColumn = document.getElementById('subcategoryColumn');
+        const periodColumn = document.getElementById('periodColumn');
+        const valueColumn = document.getElementById('valueColumn');
+        const autoDetectColumns = document.getElementById('autoDetectColumns');
+        
+        // Modal de detalle
+        const detailModal = document.getElementById('detailModal');
+        const closeModal = document.getElementById('closeModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const detailChart = document.getElementById('detailChart');
+        const detailTable = document.getElementById('detailTable');
+        const chartStatus = document.getElementById('chartStatus');
+        
+        // Variables para almacenar datos procesados
+        let headers = [];
+        let rawData = [];
+        let categories = [];
+        let subcategories = [];
+        let allPeriods = [];
+        let cellData = {};
+        
+        // Datos de ejemplo
+        const sampleData = `Row	Column	Wks	Value
+Costo Personal	Nómina	2024.01	24500
+Costo Personal	Nómina	2024.02	24800
+Costo Personal	Nómina	2024.03	25100
+Costo Personal	Nómina	2024.04	25300
+Costo Personal	Seguros Sociales	2024.01	7350
+Costo Personal	Seguros Sociales	2024.02	7440
+Costo Personal	Seguros Sociales	2024.03	7530
+Costo Personal	Seguros Sociales	2024.04	7590
+Gastos Generales	Alquiler	2024.01	3500
+Gastos Generales	Alquiler	2024.02	3500
+Gastos Generales	Alquiler	2024.03	3500
+Gastos Generales	Alquiler	2024.04	3500
+Gastos Generales	Suministros	2024.01	1200
+Gastos Generales	Suministros	2024.02	1350
+Gastos Generales	Suministros	2024.03	1280
+Gastos Generales	Suministros	2024.04	1420
+Ventas	Cliente A	2024.01	-32000
+Ventas	Cliente A	2024.02	-29500
+Ventas	Cliente A	2024.03	-34200
+Ventas	Cliente A	2024.04	-31800
+Ventas	Cliente B	2024.01	-18500
+Ventas	Cliente B	2024.02	-19800
+Ventas	Cliente B	2024.03	-20300
+Ventas	Cliente B	2024.04	-22400
+Marketing	Publicidad	2024.01	4200
+Marketing	Publicidad	2024.02	3900
+Marketing	Publicidad	2024.03	4500
+Marketing	Publicidad	2024.04	4800
+Marketing	Eventos	2024.01	2300
+Marketing	Eventos	2024.02	0
+Marketing	Eventos	2024.03	5600
+Marketing	Eventos	2024.04	1200`;
+
+        // Función de debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Mostrar mensaje de estado
+        function showStatus(message, type = 'info') {
+            statusIndicator.textContent = message;
+            statusIndicator.style.display = 'block';
+            
+            if (type === 'error') {
+                statusIndicator.style.backgroundColor = '#fee2e2';
+                statusIndicator.style.borderLeftColor = '#ef4444';
+            } else if (type === 'success') {
+                statusIndicator.style.backgroundColor = '#dcfce7';
+                statusIndicator.style.borderLeftColor = '#22c55e';
+            } else {
+                statusIndicator.style.backgroundColor = '#f0f9ff';
+                statusIndicator.style.borderLeftColor = '#3b82f6';
+            }
+            
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 5000);
+        }
+
+        // Loading overlay
+        function showLoadingOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = `
+                <div class="loading-spinner"></div>
+                <p>Procesando datos...</p>
+            `;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        function hideLoadingOverlay(overlay) {
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        }
+
+        // Event Listeners
+        autoDetectColumns.addEventListener('change', function() {
+            categoryColumn.disabled = this.checked;
+            subcategoryColumn.disabled = this.checked;
+            periodColumn.disabled = this.checked;
+            valueColumn.disabled = this.checked;
+        });
+
+        // Evento para cargar archivo cuando se selecciona
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const reader = new FileReader();
+                
+                showStatus('Leyendo archivo...');
+                
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    processTextData(text);
+                };
+                
+                reader.onerror = function() {
+                    showStatus('Error al leer el archivo.', 'error');
+                };
+                
+                reader.readAsText(file);
+            }
+        });
+
+        btnLoadSample.addEventListener('click', function() {
+            dataInput.value = sampleData;
+            showStatus('Datos de ejemplo cargados');
+        });
+
+        btnProcessData.addEventListener('click', function() {
+            const text = dataInput.value.trim();
+            if (!text) {
+                showStatus('Por favor, ingrese datos para procesar.', 'error');
+                return;
+            }
+            processTextData(text);
+        });
+
+        btnLoadFile.addEventListener('click', function() {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showStatus('Por favor, selecciona un archivo primero.', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            showStatus('Leyendo archivo...');
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                processTextData(text);
+            };
+            
+            reader.onerror = function() {
+                showStatus('Error al leer el archivo.', 'error');
+            };
+            
+            reader.readAsText(file);
+        });
+
+        // Tabs
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                this.classList.add('active');
+                document.getElementById('tab' + this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1)).classList.add('active');
+            });
+        });
+
+        // Modal
+        function closeDetailModal() {
+            detailModal.style.display = 'none';
+        }
+
+        if (closeModal) {
+            closeModal.onclick = closeDetailModal;
+        }
+
+        window.onclick = function(event) {
+            if (event.target == detailModal) {
+                closeDetailModal();
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape" && detailModal.style.display === 'block') {
+                closeDetailModal();
+            }
+        });
+
+        // Funciones de procesamiento de datos
+        function detectDelimiter(text) {
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return '\t';
+            
+            const firstLine = lines[0];
+            const tabCount = (firstLine.match(/\t/g) || []).length;
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const semicolonCount = (firstLine.match(/;/g) || []).length;
+            
+            if (tabCount > commaCount && tabCount > semicolonCount) return '\t';
+            if (commaCount > tabCount && commaCount > semicolonCount) return ',';
+            if (semicolonCount > tabCount && semicolonCount > commaCount) return ';';
+            
+            return '\t';
+        }
+
+        function detectColumns(headers) {
+            const result = {
+                category: null,
+                subcategory: null,
+                period: null,
+                value: null
+            };
+            
+            const categoryOptions = ['row', 'categoría', 'categoria', 'category'];
+            const subcategoryOptions = ['column', 'subcategoría', 'subcategoria', 'subcategory'];
+            const periodOptions = ['wks', 'período', 'periodo', 'period', 'date', 'fecha'];
+            const valueOptions = ['value', 'valor', 'amount', 'importe'];
+            
+            for (const col of headers) {
+                const lowerCol = col.toLowerCase();
+                if (!result.category && categoryOptions.includes(lowerCol)) result.category = col;
+                if (!result.subcategory && subcategoryOptions.includes(lowerCol)) result.subcategory = col;
+                if (!result.period && periodOptions.includes(lowerCol)) result.period = col;
+                if (!result.value && valueOptions.includes(lowerCol)) result.value = col;
+            }
+            
+            return result;
+        }
+
+        function processTextData(text) {
+            const overlay = showLoadingOverlay();
+            loadingIndicator.style.display = 'block';
+            matrixContainer.style.display = 'none';
+            
+            setTimeout(() => {
+                try {
+                    processData(text);
+                    hideLoadingOverlay(overlay);
+                } catch (error) {
+                    console.error('Error processing data:', error);
+                    showStatus(`Error: ${error.message}`, 'error');
+                    hideLoadingOverlay(overlay);
+                }
+            }, 100);
+        }
+
+        function processData(text) {
+            const delimiter = detectDelimiter(text);
+            const lines = text.split(/\r?\n/);
+            
+            if (lines.length < 2) {
+                throw new Error('No hay suficientes líneas de datos.');
+            }
+            
+            headers = lines[0].split(delimiter).map(h => h.trim());
+            
+            let catColumn, subCatColumn, periodColumn, valColumn;
+            
+            if (autoDetectColumns.checked) {
+                const detectedColumns = detectColumns(headers);
+                catColumn = detectedColumns.category;
+                subCatColumn = detectedColumns.subcategory;
+                periodColumn = detectedColumns.period;
+                valColumn = detectedColumns.value;
+                
+                if (catColumn) categoryColumn.value = catColumn;
+                if (subCatColumn) subcategoryColumn.value = subCatColumn;
+                if (periodColumn) periodColumn.value = periodColumn;
+                if (valColumn) valueColumn.value = valColumn;
+            } else {
+                catColumn = categoryColumn.value;
+                subCatColumn = subcategoryColumn.value;
+                periodColumn = periodColumn.value;
+                valColumn = valueColumn.value;
+            }
+            
+            if (!headers.includes(catColumn)) throw new Error(`No se encontró la columna de categoría: ${catColumn}`);
+            if (!headers.includes(subCatColumn)) throw new Error(`No se encontró la columna de subcategoría: ${subCatColumn}`);
+            if (!headers.includes(periodColumn)) throw new Error(`No se encontró la columna de período: ${periodColumn}`);
+            if (!headers.includes(valColumn)) throw new Error(`No se encontró la columna de valor: ${valColumn}`);
+            
+            const catIndex = headers.indexOf(catColumn);
+            const subCatIndex = headers.indexOf(subCatColumn);
+            const periodIndex = headers.indexOf(periodColumn);
+            const valueIndex = headers.indexOf(valColumn);
+            
+            rawData = [];
+            const catSet = new Set();
+            const subCatSet = new Set();
+            const periodSet = new Set();
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                
+                const values = lines[i].split(delimiter);
+                if (values.length !== headers.length) continue;
+                
+                const row = {
+                    category: values[catIndex].trim(),
+                    subcategory: values[subCatIndex].trim(),
+                    period: values[periodIndex].trim(),
+                    value: parseFloat(String(values[valueIndex]).replace(',', '.'))
+                };
+                
+                if (isNaN(row.value)) continue;
+                
+                rawData.push(row);
+                catSet.add(row.category);
+                subCatSet.add(row.subcategory);
+                periodSet.add(row.period);
+            }
+            
+            categories = Array.from(catSet);
+            subcategories = Array.from(subCatSet);
+            allPeriods = Array.from(periodSet).sort();
+            
+            prepareCellData();
+            generateMatrix();
+            
+            loadingIndicator.style.display = 'none';
+            matrixContainer.style.display = 'block';
+            
+            showStatus(`Datos procesados correctamente: ${rawData.length} registros`, 'success');
+        }
+
+        function prepareCellData() {
+            const lastPeriod = allPeriods[allPeriods.length - 1];
+            
+            categories.forEach(category => {
+                subcategories.forEach(subcategory => {
+                    const items = rawData.filter(item => 
+                        item.category === category && 
+                        item.subcategory === subcategory
+                    );
+    // Continúa desde prepareCellData()...
+    
+    function generateMatrix() {
+        // Ordenar categorías y subcategorías por valor del último período
+        const catTotals = {};
+        const subCatTotals = {};
+        
+        Object.values(cellData).forEach(cell => {
+            const { category, subcategory, lastValue } = cell;
+            catTotals[category] = (catTotals[category] || 0) + Math.abs(lastValue);
+            subCatTotals[subcategory] = (subCatTotals[subcategory] || 0) + Math.abs(lastValue);
+        });
+        
+        const sortedCategories = categories.sort((a, b) => 
+            (catTotals[b] || 0) - (catTotals[a] || 0)
+        );
+        
+        const sortedSubcategories = subcategories.sort((a, b) => 
+            (subCatTotals[b] || 0) - (subCatTotals[a] || 0)
+        );
+        
+        // Aplicar filtros
+        const mode = viewMode.value;
+        const maxRowCount = parseInt(maxRows.value);
+        const maxColCount = parseInt(maxCols.value);
+        
+        const visibleCategories = mode === 'top' ? sortedCategories.slice(0, maxRowCount) : sortedCategories;
+        const visibleSubcategories = mode === 'top' ? sortedSubcategories.slice(0, maxColCount) : sortedSubcategories;
+        
+        // Limpiar encabezados anteriores
+        while (headerRow.children.length > 1) {
+            headerRow.removeChild(headerRow.lastChild);
+        }
+        
+        // Agregar encabezados de subcategorías
+        visibleSubcategories.forEach(subcategory => {
+            const th = document.createElement('th');
+            th.textContent = subcategory;
+            headerRow.appendChild(th);
+        });
+        
+        // Limpiar filas anteriores
+        tableBody.innerHTML = '';
+        
+        // Agregar filas para cada categoría
+        visibleCategories.forEach(category => {
+            const tr = document.createElement('tr');
+            
+            // Celda de categoría
+            const tdCategory = document.createElement('td');
+            tdCategory.textContent = category;
+            tdCategory.style.fontWeight = 'bold';
+            tr.appendChild(tdCategory);
+            
+            // Celdas para cada subcategoría
+            visibleSubcategories.forEach(subcategory => {
+                const td = document.createElement('td');
+                const cellKey = `${category}|${subcategory}`;
+                const cell = cellData[cellKey];
+                
+                if (!cell) {
+                    td.textContent = '-';
+                } else {
+                    // Crear contenido de la celda
+                    const cellContent = document.createElement('div');
+                    cellContent.className = 'cell-content';
+                    cellContent.setAttribute('role', 'button');
+                    cellContent.setAttribute('tabindex', '0');
+                    
+                    // Valor del último período
+                    const valueDiv = document.createElement('div');
+                    valueDiv.className = cell.lastValue >= 0 ? 'cell-value positive' : 'cell-value negative';
+                    valueDiv.textContent = formatValue(cell.lastValue);
+                    cellContent.appendChild(valueDiv);
+                    
+                    // Mini gráfico
+                    const chartDiv = document.createElement('div');
+                    chartDiv.className = 'mini-chart';
+                    chartDiv.id = `chart-${category.replace(/\s+/g, '-')}-${subcategory.replace(/\s+/g, '-')}`;
+                    cellContent.appendChild(chartDiv);
+                    
+                    // Período mostrado
+                    const periodsDiv = document.createElement('div');
+                    periodsDiv.className = 'cell-periods';
+                    periodsDiv.textContent = allPeriods[allPeriods.length - 1];
+                    cellContent.appendChild(periodsDiv);
+                    
+                    td.appendChild(cellContent);
+                    
+                    // Añadir tooltip
+                    td.setAttribute('title', `
+                        Categoría: ${cell.category}
+                        Subcategoría: ${cell.subcategory}
+                        Valor (${allPeriods[allPeriods.length - 1]}): ${formatCurrency(cell.lastValue)}
+                        
+                        Click para ver detalle
+                    `);
+                    
+                    // Añadir evento de clic
+                    td.style.cursor = 'pointer';
+                    td.addEventListener('click', () => showDetail(cell));
+                    
+                    // Añadir evento de teclado para accesibilidad
+                    td.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            showDetail(cell);
+                        }
+                    });
+                }
+                
+                tr.appendChild(td);
+            });
+            
+            tableBody.appendChild(tr);
+        });
+        
+        // Dibujar mini gráficos después de que se ha renderizado la tabla
+        setTimeout(() => {
+            visibleCategories.forEach(category => {
+                visibleSubcategories.forEach(subcategory => {
+                    const cellKey = `${category}|${subcategory}`;
+                    const cell = cellData[cellKey];
+                    
+                    if (cell) {
+                        const chartId = `chart-${category.replace(/\s+/g, '-')}-${subcategory.replace(/\s+/g, '-')}`;
+                        const chartContainer = document.getElementById(chartId);
+                        
+                        if (chartContainer) {
+                            drawMiniChart(chartContainer, cell.timeSeries, cell.lastValue >= 0);
+                        }
+                    }
+                });
+            });
+        }, 100);
+    }
+
+    function showDetail(cell) {
+        try {
+            // Asegurarse de que el modal comienza oculto
+            detailModal.style.display = 'none';
+            
+            // Actualizar título
+            modalTitle.textContent = `${cell.category} × ${cell.subcategory}`;
+            
+            // Mostrar placeholder y status inicial
+            detailChart.innerHTML = '<div class="chart-placeholder">Cargando gráfico...</div>';
+            chartStatus.textContent = 'Preparando visualización...';
+            
+            // Tabla de valores
+            let tableHtml = `
+                <table style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Solo mostrar períodos con valores
+            const validPeriods = cell.timeSeries.filter(p => p.value !== 0);
+            
+            validPeriods.forEach(point => {
+                tableHtml += `
+                    <tr>
+                        <td>${point.period}</td>
+                        <td style="text-align:right;${point.value < 0 ? 'color:#dc2626;' : 'color:#1d4ed8;'}">${formatCurrency(point.value)}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHtml += `
+                    </tbody>
+                </table>
+                <div style="text-align:center; margin-top:20px;">
+                    <button id="closeModalButton" style="background-color:#64748b;">Cerrar</button>
+                </div>
+            `;
+            
+            detailTable.innerHTML = tableHtml;
+            
+            // Agregar evento al botón adicional
+            setTimeout(() => {
+                const closeModalButton = document.getElementById('closeModalButton');
+                if (closeModalButton) {
+                    closeModalButton.addEventListener('click', closeDetailModal);
+                }
+            }, 100);
+            
+            // Mostrar modal primero
+            detailModal.style.display = 'block';
+            
+            // Después de un momento, dibujar el gráfico
+            setTimeout(() => {
+                chartStatus.textContent = 'Dibujando gráfico...';
+                
+                setTimeout(() => {
+                    detailChart.innerHTML = '';
+                    const success = drawDetailChart(detailChart, cell.timeSeries, cell.lastValue >= 0);
+                    
+                    if (success) {
+                        chartStatus.textContent = `Gráfico generado con ${cell.periodsWithData} períodos de datos`;
+                    } else {
+                        chartStatus.textContent = 'No se pudo generar el gráfico';
+                    }
+                }, 100);
+            }, 300);
+        } catch (error) {
+            console.error('Error al mostrar detalle:', error);
+            chartStatus.textContent = `Error: ${error.message}`;
+        }
+    }
+ // Funciones de gráficos
+    function drawMiniChart(container, data, isPositive) {
+        try {
+            container.innerHTML = '';
+            if (!data || data.length === 0) return;
+            
+            const validData = data.filter(item => item.value !== 0);
+            
+            // Si no hay datos válidos, dibujar línea plana
+            if (validData.length === 0) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('height', '100%');
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', '0');
+                line.setAttribute('y1', '50%');
+                line.setAttribute('x2', '100%');
+                line.setAttribute('y2', '50%');
+                line.setAttribute('stroke', '#cbd5e1');
+                line.setAttribute('stroke-width', '1');
+                
+                svg.appendChild(line);
+                container.appendChild(svg);
+                return;
+            }
+            
+            // Si solo hay un punto, dibujar barra
+            if (validData.length === 1) {
+                const div = document.createElement('div');
+                div.style.width = '40%';
+                div.style.height = '50%';
+                div.style.margin = '10px auto';
+                div.style.backgroundColor = isPositive ? '#3b82f6' : '#ef4444';
+                container.appendChild(div);
+                return;
+            }
+            
+            // Configuración para el gráfico
+            const width = container.clientWidth || 100;
+            const height = container.clientHeight || 40;
+            const margin = { top: 3, right: 3, bottom: 3, left: 3 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            
+            // Crear SVG con D3
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('viewBox', `0 0 ${width} ${height}`)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Crear escalas
+            const xScale = d3.scaleLinear()
+                .domain([0, data.length - 1])
+                .range([0, chartWidth]);
+            
+            const values = data.map(d => d.value);
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            
+            const yScale = d3.scaleLinear()
+                .domain([minVal, maxVal])
+                .range([chartHeight, 0])
+                .nice();
+            
+            // Crear línea
+            const line = d3.line()
+                .x((d, i) => xScale(i))
+                .y(d => yScale(d.value))
+                .curve(d3.curveMonotoneX);
+            
+            // Dibujar línea
+            svg.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', isPositive ? '#3b82f6' : '#ef4444')
+                .attr('stroke-width', 1.5)
+                .attr('d', line);
+            
+            // Dibujar puntos
+            svg.selectAll('.point')
+                .data(data)
+                .enter()
+                .append('circle')
+                .attr('cx', (d, i) => xScale(i))
+                .attr('cy', d => yScale(d.value))
+                .attr('r', 1.5)
+                .attr('fill', isPositive ? '#3b82f6' : '#ef4444');
+            
+            return true;
+        } catch(error) {
+            console.error('Error en drawMiniChart:', error);
+            container.innerHTML = '<div style="text-align:center;font-size:9px;color:#999;">Gráfico</div>';
+            return false;
+        }
+    }
+
+    function drawDetailChart(container, data, isPositive) {
+        try {
+            container.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding-top:100px;color:#64748b;">No hay datos para mostrar</div>';
+                return false;
+            }
+            
+            const validData = data.filter(item => item.value !== 0);
+            
+            if (validData.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding-top:100px;color:#64748b;">No hay datos para mostrar</div>';
+                return false;
+            }
+            
+            const width = container.clientWidth || 600;
+            const height = container.clientHeight || 300;
+            const margin = { top: 20, right: 20, bottom: 50, left: 50 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('viewBox', `0 0 ${width} ${height}`)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const xScale = d3.scaleBand()
+                .domain(data.map(d => d.period))
+                .range([0, chartWidth])
+                .padding(0.3);
+            
+            const values = data.map(d => d.value);
+            const minVal = Math.min(0, Math.min(...values));
+            const maxVal = Math.max(0, Math.max(...values));
+            
+            const yMin = minVal < 0 ? minVal * 1.1 : minVal * 0.9;
+            const yMax = maxVal > 0 ? maxVal * 1.1 : maxVal * 0.9;
+            
+            const yScale = d3.scaleLinear()
+                .domain([yMin, yMax])
+                .range([chartHeight, 0])
+                .nice();
+            
+            // Dibujar ejes
+            const xAxis = d3.axisBottom(xScale);
+            const yAxis = d3.axisLeft(yScale).tickFormat(d => formatAxisLabel(d));
+            
+            svg.append('g')
+                .attr('transform', `translate(0,${chartHeight})`)
+                .call(xAxis)
+                .selectAll('text')
+                .style('text-anchor', 'end')
+                .attr('transform', 'rotate(-45)')
+                .attr('dx', '-.8em')
+                .attr('dy', '.15em');
+            
+            svg.append('g')
+                .call(yAxis);
+            
+            // Líneas de cuadrícula
+            svg.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(yScale)
+                    .tickSize(-chartWidth)
+                    .tickFormat('')
+                )
+                .selectAll('line')
+                .style('stroke', '#e2e8f0')
+                .style('stroke-dasharray', '3,3');
+            
+            // Línea de cero si hay valores positivos y negativos
+            if (minVal < 0 && maxVal > 0) {
+                svg.append('line')
+                    .attr('x1', 0)
+                    .attr('y1', yScale(0))
+                    .attr('x2', chartWidth)
+                    .attr('y2', yScale(0))
+                    .style('stroke', '#94a3b8')
+                    .style('stroke-width', 1);
+            }
+            
+            // Dibujar barras
+            svg.selectAll('.bar')
+                .data(data)
+                .enter()
+                .append('rect')
+                .attr('class', 'bar')
+                .attr('x', d => xScale(d.period))
+                .attr('y', d => d.value >= 0 ? yScale(d.value) : yScale(0))
+                .attr('width', xScale.bandwidth())
+                .attr('height', d => Math.abs(yScale(d.value) - yScale(0)))
+                .attr('fill', d => d.value >= 0 ? '#3b82f6' : '#ef4444')
+                .attr('opacity', d => d.value === 0 ? 0.1 : 0.7);
+            
+            // Dibujar línea de tendencia
+            if (validData.length > 1) {
+                const lineGenerator = d3.line()
+                    .x(d => xScale(d.period) + xScale.bandwidth() / 2)
+                    .y(d => yScale(d.value))
+                    .curve(d3.curveMonotoneX);
+                
+                svg.append('path')
+                    .datum(validData)
+                    .attr('fill', 'none')
+                    .attr('stroke', isPositive ? '#1d4ed8' : '#b91c1c')
+                    .attr('stroke-width', 2)
+                    .attr('d', lineGenerator);
+                
+                // Dibujar puntos en la línea
+                svg.selectAll('.line-point')
+                    .data(validData)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'line-point')
+                    .attr('cx', d => xScale(d.period) + xScale.bandwidth() / 2)
+                    .attr('cy', d => yScale(d.value))
+                    .attr('r', 4)
+                    .attr('fill', isPositive ? '#1d4ed8' : '#b91c1c');
+            }
+            
+            // Añadir etiquetas de valor
+            svg.selectAll('.value-label')
+                .data(validData)
+                .enter()
+                .append('text')
+                .attr('class', 'value-label')
+                .attr('x', d => xScale(d.period) + xScale.bandwidth() / 2)
+                .attr('y', d => d.value >= 0 ? yScale(d.value) - 10 : yScale(d.value) + 15)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '10px')
+                .attr('fill', d => d.value >= 0 ? '#1d4ed8' : '#b91c1c')
+                .text(d => formatShortValue(d.value));
+            
+            return true;
+        } catch(error) {
+            console.error('Error en drawDetailChart:', error);
+            container.innerHTML = '<div style="text-align:center;padding-top:100px;color:#dc2626;">Error al generar el gráfico: ' + error.message + '</div>';
+            return false;
+        }
+    }
+
+    // Funciones de formateo
+    function formatValue(value) {
+        if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}K`;
+        return value.toFixed(0);
+    }
+
+    function formatShortValue(value) {
+        if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}K`;
+        return value.toFixed(0);
+    }
+
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('es-ES', {
+            style: 'currency',
+            currency: 'EUR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(value);
+    }
+
+    function formatAxisLabel(value) {
+        if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}K`;
+        return value.toFixed(0);
+    }
+// Event listeners para los controles de visualización
+    const debouncedUpdateMatrix = debounce(updateMatrix, 250);
+    viewMode.addEventListener('change', debouncedUpdateMatrix);
+    maxRows.addEventListener('change', debouncedUpdateMatrix);
+    maxCols.addEventListener('change', debouncedUpdateMatrix);
+
+    // Función para actualizar la matriz
+    function updateMatrix() {
+        if (Object.keys(cellData).length > 0) {
+            generateMatrix();
+        }
+    }
+
+    // Exportar a CSV
+    function exportToCSV() {
+        const rows = [['Categoría', 'Subcategoría', 'Período', 'Valor']];
+        
+        Object.values(cellData).forEach(cell => {
+            cell.timeSeries.forEach(point => {
+                if (point.value !== 0) {  // Solo exportar valores no nulos
+                    rows.push([
+                        cell.category,
+                        cell.subcategory,
+                        point.period,
+                        point.value
+                    ]);
+                }
+            });
+        });
+        
+        const csvContent = rows.map(row => 
+            row.map(cell => 
+                typeof cell === 'string' ? `"${cell}"` : cell
+            ).join(',')
+        ).join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `dashboard_data_${formatDate(new Date())}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Función auxiliar para formatear la fecha en el nombre del archivo
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // Crear y añadir botón de exportación
+    function addExportButton() {
+        const exportButton = document.createElement('button');
+        exportButton.textContent = 'Exportar CSV';
+        exportButton.onclick = exportToCSV;
+        exportButton.style.backgroundColor = '#059669';
+        
+        const controlsContainer = document.querySelector('.controls');
+        if (controlsContainer) {
+            controlsContainer.appendChild(exportButton);
+        }
+    }
+
+    // Inicialización
+    window.addEventListener('load', function() {
+        // Mostrar mensaje inicial
+        showStatus('Selecciona un archivo o carga los datos de ejemplo para comenzar');
+        
+        // Añadir botón de exportación
+        addExportButton();
+        
+        // Configurar columnas por defecto
+        if (autoDetectColumns.checked) {
+            categoryColumn.disabled = true;
+            subcategoryColumn.disabled = true;
+            periodColumn.disabled = true;
+            valueColumn.disabled = true;
+        }
+
+        // Configurar accesibilidad del modal
+        detailModal.setAttribute('role', 'dialog');
+        detailModal.setAttribute('aria-modal', 'true');
+        
+        // Añadir soporte para temas oscuros
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-mode');
+        }
+    });
+
+    // Soporte para temas oscuros
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (e.matches) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    });
+
+</script>
+</body>
+</html>
