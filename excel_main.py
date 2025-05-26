@@ -8,33 +8,26 @@ import sys
 import pandas as pd
 import datetime
 from excel_utils import extract_tree_data, procesar_datos_arbol
-from excel_utils import extraer_itmids_hoja, filtrar_fasg5_por_itmids
+from excel_utils import extraer_itmids_hoja
 
 # Valores hardcodeados del Excel y sus hojas
 EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/DataKHT_V06.xlsm"
 HISTORIC_SHEET = "FrmBB_2"
 KPI_SHEET = "FrmBB_3"
-TREE_SHEET = "F_Asg3"  # Corregido: F_Asg3 en lugar de FrmBB_4
+TREE_SHEET = "F_Asg3"
 
 def wks_to_date(wks):
     """
-    Convierte un valor WKS (YYYY.WW) en una fecha real (domingo de la semana ISO).
-    Devuelve también el número de serie Excel (días desde 1899-12-30).
+    Convierte una semana de excel a fecha y número serial.
     """
-    import datetime
     try:
-        wks_str = str(wks).replace(',', '').replace(' ', '').strip()
-        if '.' in wks_str:
-            year, week = wks_str.split('.', 1)
-            year = int(year)  # CORREGIDO: Usar year en lugar de wks_str
-            week = int(week)
-            date = datetime.date.fromisocalendar(year, week, 7)  # 7 = domingo
-        elif wks_str.isdigit() and len(wks_str) == 4:
-            year = int(wks_str)
-            date = datetime.date.fromisocalendar(year, 1, 7)
-        else:
+        parts = wks.split('-W')
+        if len(parts) != 2:
             return None, None
-        # Número de serie Excel: días desde 1899-12-30
+        year = int(parts[0])
+        week = int(parts[1])
+        from datetime import datetime, timedelta
+        date = datetime.strptime(f'{year}-W{week}-1', '%Y-W%W-%w').date()
         excel_base = datetime.date(1899, 12, 30)
         excel_serial = (date - excel_base).days
         return date, excel_serial
@@ -46,13 +39,25 @@ def extract_historic_data(excel_path, sheet_name):
     Extrae datos históricos desde una hoja de Excel.
     """
     try:
-        df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={'WKS': str, 'PRJID': str})
-        # Añadir columna WKS_DATE y WKS_SERIAL
-        wks_dates_and_serials = df['WKS'].apply(wks_to_date)
-        df['WKS_DATE'] = wks_dates_and_serials.apply(lambda x: x[0])
-        df['WKS_SERIAL'] = wks_dates_and_serials.apply(lambda x: x[1])
-        return df.to_dict(orient="records")
-    except Exception as e:
+        df = pd.read_excel(excel_path, sheet_name=sheet_name)
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'CIA': str(row['CIA']).strip(),
+                'PRJID': str(row['PRJID']).strip(),
+                'ROW': str(row['ROW']).strip(),
+                'COLUMN': str(row['COLUMN']).strip(),
+                'HPREV': float(row['HPREV']) if pd.notna(row['HPREV']) else 0,
+                'PPTO': float(row['PPTO']) if pd.notna(row['PPTO']) else 0,
+                'REAL': float(row['REAL']) if pd.notna(row['REAL']) else 0,
+                'WKS': str(row['WKS']).strip()
+            }
+            date, serial = wks_to_date(record['WKS'])
+            record['WKS_DATE'] = date
+            record['WKS_SERIAL'] = serial
+            records.append(record)
+        return records
+    except Exception:
         return []
 
 def extract_kpi_data(excel_path, sheet_name):
@@ -60,26 +65,65 @@ def extract_kpi_data(excel_path, sheet_name):
     Extrae datos KPI desde una hoja de Excel.
     """
     try:
-        df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={'PRJID': str})
-        return df.to_dict(orient="records")
-    except Exception as e:
+        df = pd.read_excel(excel_path, sheet_name=sheet_name)
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'CIA': str(row['CIA']).strip(),
+                'PRJID': str(row['PRJID']).strip(),
+                'ROW': str(row['ROW']).strip(),
+                'COLUMN': str(row['COLUMN']).strip(),
+                'KPREV': float(row['KPREV']) if pd.notna(row['KPREV']) else 0,
+                'PDTE': float(row['PDTE']) if pd.notna(row['PDTE']) else 0,
+                'REALPREV': float(row['REALPREV']) if pd.notna(row['REALPREV']) else 0,
+                'PPTOPREV': float(row['PPTOPREV']) if pd.notna(row['PPTOPREV']) else 0
+            }
+            records.append(record)
+        return records
+    except Exception:
         return []
 
-# Eliminada la función extract_tree_data duplicada, ahora se importa de excel_utils
-
-def structure_data(historic_data, kpi_data, tree_data):
+def extract_itm_data(excel_path, sheet_name="F_Asg5"):
     """
-    Estructura los datos en la jerarquía correcta, usando DATATYPE como clave y DATACONTENTS como valor.
-    Si todos los valores de un registro KPI o histórico son 0, se establece DATACONTENTS como None.
+    Extrae datos de la tabla F_Asg5 (datos de items).
+    Asegura que todos los campos sean texto.
+    """
+    try:
+        # Leer el Excel asegurando que todos los campos sean texto
+        df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={
+            'CIA': str,
+            'PRJID': str,
+            'ITMID': str,
+            'ITMFRM': str
+        })
+        
+        # Convertir a lista de diccionarios y asegurar que todos los campos sean texto
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'CIA': str(row['CIA']).strip(),
+                'PRJID': str(row['PRJID']).strip(),
+                'ITMID': str(row['ITMID']).strip(),
+                'ITMFRM': str(row['ITMFRM']).strip()
+            }
+            records.append(record)
+        
+        return records
+    except Exception:
+        return []
+
+def structure_data(historic_data, kpi_data, tree_data, fasg5_data=None):
+    """
+    Estructura los datos en un formato jerárquico por CIA, PRJID, ROW, COLUMN
     """
     structured_data = {}
 
     # Procesar datos históricos (H)
     for record in historic_data:
         cia = record.get("CIA")
-        prjid = str(record.get("PRJID"))  # Asegurar string
-        row = str(record.get("ROW", "")).strip()  # Asegurar string y eliminar espacios
-        column = str(record.get("COLUMN", "")).strip()  # Asegurar string y eliminar espacios
+        prjid = str(record.get("PRJID"))
+        row = str(record.get("ROW", "")).strip()
+        column = str(record.get("COLUMN", "")).strip()
 
         if cia not in structured_data:
             structured_data[cia] = {}
@@ -114,9 +158,9 @@ def structure_data(historic_data, kpi_data, tree_data):
     # Procesar datos KPI (K)
     for record in kpi_data:
         cia = record.get("CIA")
-        prjid = str(record.get("PRJID"))  # Asegurar string
-        row = str(record.get("ROW", "")).strip()  # Asegurar string y eliminar espacios
-        column = str(record.get("COLUMN", "")).strip()  # Asegurar string y eliminar espacios
+        prjid = str(record.get("PRJID"))
+        row = str(record.get("ROW", "")).strip()
+        column = str(record.get("COLUMN", "")).strip()
 
         if cia not in structured_data:
             structured_data[cia] = {}
@@ -144,21 +188,25 @@ def structure_data(historic_data, kpi_data, tree_data):
                 "PPTOPREV": record.get("PPTOPREV")
             }
 
+    # Construir lookup de ITMFRM
+    from excel_utils import build_itmfrm_lookup
+    itmfrm_lookup = build_itmfrm_lookup(fasg5_data) if fasg5_data else {}
+
     # Procesar datos tipo T (árbol), solo si se proporciona y no está vacío
     if tree_data:
         tree_by_row = {}
         for record in tree_data:
-            row = str(record.get("ROW", "")).strip()  # Asegurar string y eliminar espacios
-            column = str(record.get("COLUMN", "")).strip()  # Asegurar string y eliminar espacios
-
+            row = str(record.get("ROW", "")).strip()
+            column = str(record.get("COLUMN", "")).strip()
             row_key = (record.get("CIA"), record.get("PRJID"), row)
             if row_key not in tree_by_row:
                 tree_by_row[row_key] = []
             tree_by_row[row_key].append(record)
-
+        
         for row_key, items in tree_by_row.items():
             cia, prjid, row = row_key
-            column_structures = procesar_datos_arbol(items)
+            column_structures = procesar_datos_arbol(items, itmfrm_lookup=itmfrm_lookup, fasg5_data=fasg5_data)
+
             for column, tree_structure in column_structures.items():
                 if tree_structure is not None:
                     if cia not in structured_data:
@@ -182,8 +230,7 @@ def structure_data(historic_data, kpi_data, tree_data):
                         if not cell["H"]:
                             cell["H"] = None
 
-    # --- NUEVO: Correspondencia 1:1 en las claves para K, H, T ---
-    # Construir el conjunto de todas las claves posibles
+    # Correspondencia 1:1 en las claves para K, H, T
     all_keys = set()
     # De históricos
     for record in historic_data:
@@ -212,128 +259,8 @@ def structure_data(historic_data, kpi_data, tree_data):
             cell["H"] = None
         if "T" not in cell:
             cell["T"] = None
-    # --- FIN NUEVO ---
+
     return structured_data
-
-def compare_kpi_tree_data(kpi_data, tree_data, historic_data):
-    """
-    Compara los datos KPI con los datos de árbol y muestra estadísticas.
-    """
-    # Crear conjuntos de claves únicas para KPI y árbol
-    kpi_keys = set()
-    tree_keys = set()
-    
-    # Procesar datos KPI
-    for record in kpi_data:
-        key = (record["CIA"], record["PRJID"], record["ROW"], record["COLUMN"])
-        kpi_keys.add(key)
-    
-    # Procesar datos de árbol
-    for record in tree_data:
-        key = (record["CIA"], record["PRJID"], record["ROW"], record["COLUMN"])
-        tree_keys.add(key)
-    
-    # Encontrar diferencias
-    kpi_without_tree = kpi_keys - tree_keys
-    tree_without_kpi = tree_keys - kpi_keys
-    
-    # Contar KPIs con valor 0 que no tienen árbol
-    kpi_zero_without_tree = 0
-    for record in kpi_data:
-        key = (record["CIA"], record["PRJID"], record["ROW"], record["COLUMN"])
-        if key in kpi_without_tree and record.get("REALPREV", 0) == 0:
-            kpi_zero_without_tree += 1
-
-def comparar_resultados_finales(result):
-    kpi_keys = set()
-    tree_keys = set()
-
-    for r in result:
-        key = (r["CIA"], r["PRJID"], r["ROW"], r["COLUMN"])
-        if r["DATATYPE"] == "K":
-            kpi_keys.add(key)
-        elif r["DATATYPE"] == "T":
-            tree_keys.add(key)
-
-    comunes = kpi_keys & tree_keys
-    solo_kpi = kpi_keys - tree_keys
-    solo_tree = tree_keys - kpi_keys
-
-def extract_itm_data(excel_path, sheet_name="F_Asg5"):
-    """
-    Extrae datos de la tabla F_Asg5 (datos de items).
-    """
-    try:
-        df = pd.read_excel(excel_path, sheet_name=sheet_name, dtype={
-            'CIA': str,
-            'PRJID': str,
-            'ITMID': str  # Usar exactamente el nombre de la columna en Excel
-        })
-        # Print temporal para verificar las claves
-        print("Primeros 3 registros de F_Asg5 extraídos:", df.head(3).to_dict(orient="records"))
-        # Convertir a lista de diccionarios
-        return df.to_dict(orient="records")
-    except Exception as e:
-        print(f"Error al extraer datos de {sheet_name}: {e}")
-        return []
-
-def process_fasg5_data(itm_data, tree_data):
-    """
-    Procesa los datos de F_Asg5 (tipo I) de forma independiente.
-    Devuelve una lista de diccionarios con los campos CIA, PRJID, ITMID e ITMFRM
-    para los ITMID que están en los nodos hoja del árbol.
-    """
-    from excel_utils import extraer_itmids_hoja
-    def clean_itmid(itmid):
-        """Limpia el ITMID: elimina caracteres no imprimibles, hace trim y convierte a mayúsculas"""
-        if not isinstance(itmid, str):
-            itmid = str(itmid)
-        return ''.join(c for c in itmid if c.isprintable()).strip().upper()
-
-    # Crear un diccionario para acceso rápido a ITMFRM
-    itmfrm_dict = {}
-    for item in itm_data:
-        cia = str(item.get('CIA', '')).strip()
-        prjid = str(item.get('PRJID', '')).strip()
-        itmid = clean_itmid(item.get('ITMID', ''))
-        itmfrm = item.get('ITMFRM', '')
-        key = (cia, prjid)
-        if key not in itmfrm_dict:
-            itmfrm_dict[key] = {}
-        itmfrm_dict[key][itmid] = itmfrm
-
-    # Lista para almacenar los datos filtrados
-    fasg5_filtrados = []
-
-    # Agrupar todos los árboles de tipo T por (CIA, PRJID)
-    from collections import defaultdict
-    arboles_por_cia_prjid = defaultdict(list)
-    for node in tree_data:
-        cia = str(node.get('CIA', '')).strip()
-        prjid = str(node.get('PRJID', '')).strip()
-        if node.get('DATATYPE', '') == 'T' and 'DATACONTENTS' in node:
-            arboles_por_cia_prjid[(cia, prjid)].append(node['DATACONTENTS'])
-
-    # Procesar cada combinación CIA-PRJID
-    for key, itmids in itmfrm_dict.items():
-        cia, prjid = key
-        print(f"\nProcesando combinación CIA={cia}, PRJID={prjid}")
-        # Extraer todos los ITMID hoja de todos los árboles de tipo T para esta combinación
-        valid_itmids = set()
-        for arbol in arboles_por_cia_prjid.get((cia, prjid), []):
-            itmids_hoja = extraer_itmids_hoja(arbol)
-            valid_itmids.update([clean_itmid(itm) for itm in itmids_hoja])
-        print(f"Total de ITMID hoja extraídos: {len(valid_itmids)}")
-        # Añadir a la lista solo los ITMID que están en el árbol
-        for itmid, itmfrm in itmids.items():
-            if itmid in valid_itmids:
-                fasg5_filtrados.append({
-                    'CIA': cia,
-                    'PRJID': prjid,
-                    'ITMID': itmid,
-                    'ITMFRM': itmfrm
-                })
-    return fasg5_filtrados
 
 def main():
     """
@@ -343,9 +270,10 @@ def main():
     historic_data = extract_historic_data(EXCEL_PATH, HISTORIC_SHEET)
     kpi_data = extract_kpi_data(EXCEL_PATH, KPI_SHEET)
     tree_data = extract_tree_data(EXCEL_PATH, TREE_SHEET)
+    fasg5_data = extract_itm_data(EXCEL_PATH, sheet_name="F_Asg5")
     
-    # Estructurar datos K+H+T
-    structured_data = structure_data(historic_data, kpi_data, tree_data)
+    # Estructurar datos K+H+T+I
+    structured_data = structure_data(historic_data, kpi_data, tree_data, fasg5_data=fasg5_data)
     
     # Convertir a lista plana
     result = []
@@ -386,32 +314,7 @@ def main():
     
     # Ordenar el resultado final por las mismas claves y DATATYPE
     result.sort(key=lambda r: (str(r["CIA"]), str(r["PRJID"]), str(r["ROW"]), str(r["COLUMN"]), r["DATATYPE"]))
-    comparar_resultados_finales(result)
-    
-    # Procesar datos F_Asg5 (tipo I) de forma independiente
-    itm_data = extract_itm_data(EXCEL_PATH)
-    fasg5_filtrados = process_fasg5_data(itm_data, tree_data)
-    
-    # Verificación temporal de la estructura
-    print("\nVerificación de estructura de datos_dashboard:")
-    if result:
-        # Buscar el primer elemento con DATATYPE == "T"
-        t_element = next((item for item in result if item["DATATYPE"] == "T"), None)
-        if t_element:
-            print("\nElemento con DATATYPE == 'T':")
-            print("Estructura básica:")
-            print({k: v for k, v in t_element.items() if k != "DATACONTENTS"})
-            print("\nEstructura del árbol (primer nivel):")
-            if isinstance(t_element["DATACONTENTS"], dict):
-                print("Campos del nodo raíz:")
-                print(list(t_element["DATACONTENTS"].keys()))
-                if "children" in t_element["DATACONTENTS"]:
-                    print("\nNúmero de hijos del nodo raíz:", len(t_element["DATACONTENTS"]["children"]))
-                    if t_element["DATACONTENTS"]["children"]:
-                        print("\nEstructura del primer hijo:")
-                        print(list(t_element["DATACONTENTS"]["children"][0].keys()))
-    
-    return result, fasg5_filtrados
+    return result
 
 if __name__ == "__main__":
     main()

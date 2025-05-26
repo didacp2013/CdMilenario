@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-import traceback
-import copy
+import unicodedata
 import os
 
 # Definir constantes para rutas de Excel (ajustar según sea necesario)
@@ -35,152 +34,184 @@ def extract_tree_data(excel_path, sheet_name):
             df['VALUE'] = df['VALUE'].str.replace(',', '.').astype(float)
             
         return df.to_dict(orient="records")
-    except Exception as e:
+    except Exception:
         return []
 
 def to_treemap(node):
     """
     Transforma un nodo de árbol purgado al formato compatible con Plotly treemap.
     """
-    return {
-        "id": f"{node['LEVEL']}-{node['NODE']}-{node['ITMIN']}",
-        "value": node["VALUE"],
-        "children": [to_treemap(child) for child in node.get("children", [])] if node.get("children") else []
+    result = {
+        'name': node['description'],
+        'id': node['id'],
+        'value': node['value']
     }
-
-def procesar_datos_arbol(items):
-    """
-    Procesa los datos de árbol para una combinación CIA+PRJID+ROW.
-    Args:
-        items: Lista de registros con la misma combinación CIA+PRJID+ROW.
-    Returns:
-        Un diccionario donde las claves son los valores de COLUMN y los valores
-        son las estructuras de árbol correspondientes en formato treemap.
-    """
-    for item in items:
-        if 'ITMIN' not in item:
-            return {}
-    items_by_row = {}
-    for item in items:
-        row_key = (item["CIA"], item["PRJID"], item["ROW"])
-        if row_key not in items_by_row:
-            items_by_row[row_key] = []
-        items_by_row[row_key].append(item)
-    if not items_by_row:
-        return {}
-    result = {}
-    for row_key, row_items in items_by_row.items():
-        cia, prjid, row = row_key
-        nodes_by_id = {}
-        root_nodes = []
-        for item in row_items:
-            node = {
-                "NODE": item["NODE"],
-                "ITMIN": item["ITMIN"],
-                "VALUE": item["VALUE"],
-                "LEVEL": item["LEVEL"],
-                "COLUMN": item["COLUMN"],
-                "children": []
-            }
-            nodes_by_id[(item["NODE"], item["LEVEL"])] = node
-            if item["NODEP"] == 0:
-                root_nodes.append(node)
-            elif (item["NODEP"], item["LEVEL"]-1) in nodes_by_id:
-                nodes_by_id[(item["NODEP"], item["LEVEL"]-1)]["children"].append(node)
-        if not root_nodes:
-            continue
-        leaf_columns = set()
-        for node in nodes_by_id.values():
-            if not node["children"]:
-                leaf_columns.add(node["COLUMN"])
-        for column in leaf_columns:
-            def purge_tree(node):
-                if not node["children"]:
-                    if node["COLUMN"] == column and node["VALUE"] != 0:
-                        return {
-                            "NODE": node["NODE"],
-                            "ITMIN": node["ITMIN"],
-                            "VALUE": node["VALUE"],
-                            "LEVEL": node["LEVEL"],
-                            "COLUMN": column,
-                            "children": []
-                        }
-                    return None
-                new_children = []
-                for child in node["children"]:
-                    purged_child = purge_tree(child)
-                    if purged_child is not None:
-                        new_children.append(purged_child)
-                if not new_children:
-                    return None
-                total_value = sum(child["VALUE"] for child in new_children if child["VALUE"] is not None)
-                if total_value == 0:
-                    return None
-                return {
-                    "NODE": node["NODE"],
-                    "ITMIN": node["ITMIN"],
-                    "VALUE": total_value,
-                    "LEVEL": node["LEVEL"],
-                    "COLUMN": column,
-                    "children": new_children
-                }
-            purged_roots = []
-            for root in root_nodes:
-                purged_root = purge_tree(root)
-                if purged_root is not None:
-                    purged_roots.append(purged_root)
-            if purged_roots:
-                # Transformar a formato treemap antes de asignar
-                treemap = to_treemap(purged_roots[0]) if len(purged_roots) == 1 else [to_treemap(r) for r in purged_roots]
-                result[column] = treemap
-            else:
-                result[column] = None
+    if node.get('parent'):
+        result['parent'] = node['parent']
+    if node.get('children'):
+        result['children'] = [to_treemap(child) for child in node['children']]
     return result
 
+def normaliza(s):
+    """
+    Normaliza un string eliminando espacios y convirtiéndolo a mayúsculas
+    """
+    if not isinstance(s, str):
+        return str(s).strip().upper()
+    return ''.join(c for c in unicodedata.normalize('NFD', s)
+                  if unicodedata.category(c) != 'Mn').strip().upper()
+
+def buscar_itmid_completo(fasg5_data, itmin_base):
+    """
+    Busca el ITMID completo en la tabla F_Asg5 que corresponde al ITMIN.
+    """
+    if not fasg5_data:
+        return None
+    itmin_base = normaliza(itmin_base)
+    for record in fasg5_data:
+        if normaliza(record['ITMID']).startswith(itmin_base):
+            return record['ITMID']
+    return None
+
+def limpiar_campo_texto(valor, campo=""):
+    """
+    Limpia un campo de texto
+    """
+    if pd.isna(valor) or valor is None:
+        return ""
+    return str(valor).strip()
+
+def extraer_itmid(id_str):
+    """
+    Extrae el ITMID de una cadena que puede contener información adicional
+    """
+    if not id_str:
+        return ""
+    
+    partes = id_str.split('-')
+    if len(partes) < 3:
+        return id_str.strip()
+    
+    # Tomar la tercera parte (índice 2)
+    resto = partes[2]
+    
+    # Manejar casos con paréntesis
+    if ' (' in resto:
+        itmid = resto.split(' (')[0]
+    else:
+        itmid = resto.split('(')[0]
+    
+    return itmid.strip()
+
+def build_itmfrm_lookup(fasg5_data):
+    """
+    Construye un diccionario de búsqueda para ITMFRM basado en CIA+PRJID+ITMID
+    """
+    if not fasg5_data:
+        return {}
+    
+    lookup = {}
+    for record in fasg5_data:
+        cia = normaliza(record['CIA'])
+        prjid = normaliza(record['PRJID'])
+        itmid = normaliza(record['ITMID'])
+        itmfrm = record['ITMFRM']
+        
+        key = (cia, prjid, itmid)
+        lookup[key] = itmfrm
+    
+    return lookup
+
+def procesar_datos_arbol(items, itmfrm_lookup=None, fasg5_data=None):
+    """
+    Procesa los datos del árbol y devuelve una estructura jerárquica
+    """
+    result = {}
+    # Agrupar por columna
+    column_groups = {}
+    for item in items:
+        column = limpiar_campo_texto(item.get("COLUMN", ""))
+        if column not in column_groups:
+            column_groups[column] = []
+        column_groups[column].append(item)
+    
+    # Procesar cada columna por separado
+    for column, column_items in column_groups.items():
+        # FASE 1: Construcción del árbol
+        tree = None
+        node_map = {}  # NODE -> nodo
+        
+        # Crear todos los nodos con su estructura básica
+        for item in column_items:
+            # Limpiar campos clave para la estructura
+            cia = limpiar_campo_texto(item.get("CIA", ""))
+            prjid = limpiar_campo_texto(item.get("PRJID", ""))
+            itmin = limpiar_campo_texto(item.get("ITMIN", ""))
+            
+            # El id incluye ITMID y potencialmente ITMTYP
+            full_id = f"{item['LEVEL']}-{item['NODE']}-{itmin}"
+            node = {
+                "id": full_id,
+                "value": item["VALUE"],
+                "children": [],
+                "CIA": cia,
+                "PRJID": prjid
+            }
+            node_map[item["NODE"]] = node
+            
+            # Si es el nodo raíz, establecerlo como árbol
+            if item["LEVEL"] == 1:
+                tree = node
+        
+        # Conectar los nodos según NODEP
+        for item in column_items:
+            node = node_map[item["NODE"]]
+            if item["LEVEL"] > 1:  # No es la raíz
+                parent = node_map[item["NODEP"]]
+                parent["children"].append(node)
+        
+        # FASE 2: Enriquecimiento con ITMFRM
+        if tree and (itmfrm_lookup or fasg5_data):
+            # Recorrer el árbol y añadir ITMFRM a los nodos hoja
+            def enrich_node(node):
+                if not node["children"]:  # Es un nodo hoja
+                    # Extraer ITMID del id completo
+                    itmid = extraer_itmid(node["id"])
+                    
+                    # Para la búsqueda en F_Asg5 solo usamos CIA+PRJID+ITMID
+                    cia = limpiar_campo_texto(node["CIA"])
+                    prjid = limpiar_campo_texto(node["PRJID"])
+                    itmid = limpiar_campo_texto(itmid)
+                    
+                    # La clave de búsqueda solo usa CIA+PRJID+ITMID
+                    key = (normaliza(cia), normaliza(prjid), normaliza(itmid))
+                    itmfrm = itmfrm_lookup.get(key, "")
+                    if itmfrm:
+                        node["itmfrm"] = itmfrm
+                else:
+                    for child in node["children"]:
+                        enrich_node(child)
+            
+            enrich_node(tree)
+
+        result[column] = tree if tree else None
+    
+    return result
 
 def extraer_itmids_hoja(tree_structure):
     """
-    Extrae todos los ITMID de los nodos hoja (sin hijos) de una estructura de árbol.
-    El id tiene el formato LEVEL-NODO-ITMIN(ITMTYP) y necesitamos extraer solo el ITMID.
+    Extrae los ITMIDs de los nodos hoja de un árbol
     """
-    print("\nDEBUG: Iniciando extraer_itmids_hoja")
-    print(f"DEBUG: Tipo de tree_structure: {type(tree_structure)}")
-    if isinstance(tree_structure, dict):
-        print(f"DEBUG: Claves del tree_structure: {tree_structure.keys()}")
-    
     itmids = []
-    def recorrer(nodo):
-        if isinstance(nodo, list):
-            print(f"DEBUG: Nodo es una lista con {len(nodo)} elementos")
-            for n in nodo:
-                recorrer(n)
-            return
-        print(f"DEBUG: Procesando nodo: {nodo.get('id', 'sin id')}")
-        print(f"DEBUG: Tiene hijos? {bool(nodo.get('children'))}")
-        if not nodo.get("children"):  # Solo verificamos que no tenga hijos, como en el dashboard
-            # Extraer el ITMIN del id (formato: LEVEL-NODO-ITMIN(ITMTYP))
-            itmin = str(nodo.get("id", "")).split("-")[2]
-            # Extraer solo el ITMID del ITMIN (formato: ITMID(ITMTYP))
-            itmid = itmin.split("(")[0].strip()
-            print(f"DEBUG: Nodo hoja encontrado - ITMID: {itmid}")
-            itmids.append(itmid)
-        for hijo in nodo.get("children", []):
-            recorrer(hijo)
-    recorrer(tree_structure)
-    print(f"DEBUG: Total ITMIDs extraídos: {len(itmids)}")
-    print(f"DEBUG: ITMIDs: {itmids}")
-    return itmids
-
-def filtrar_fasg5_por_itmids(fasg5_data, itmids):
-    """
-    Filtra la lista F_Asg5 dejando solo los registros cuyo ITMID está en la lista de itmids.
-    """
-    print("\nDEBUG: Iniciando filtrar_fasg5_por_itmids")
-    print(f"DEBUG: Número de registros en fasg5_data: {len(fasg5_data)}")
-    print(f"DEBUG: Número de ITMIDs a filtrar: {len(itmids)}")
-    print(f"DEBUG: Primeros 5 ITMIDs a filtrar: {itmids[:5]}")
-    print(f"DEBUG: Primeros 5 ITMIDs en fasg5_data: {[str(row.get('ITMID')) for row in fasg5_data[:5]]}")
     
-    filtered_data = [row for row in fasg5_data if str(row.get("ITMID")) in itmids]
-    print(f"DEBUG: Número de registros filtrados: {len(filtered_data)}")
-    return filtered_data
+    def process_node(node):
+        if not node.get('children'):  # Es un nodo hoja
+            itmid = extraer_itmid(node.get('id', ''))
+            if itmid:
+                itmids.append(itmid)
+        else:
+            for child in node.get('children', []):
+                process_node(child)
+    
+    process_node(tree_structure)
+    return itmids
