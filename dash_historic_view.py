@@ -30,18 +30,28 @@ def create_historic_view(data):
         hprev_values = []
         ppto_values = []
         real_values = []
+        # Generar números de serie secuenciales si no existen
+        seq_serial = 1
         for entry in historic_data:
             wks_serial = entry.get('WKS_SERIAL', None)
             wks_date = entry.get('WKS_DATE', '')
             hprev = entry.get('HPREV', 0)
             ppto = entry.get('PPTO', 0)
             real = entry.get('REAL', 0)
-            if wks_serial is not None:
-                serials.append(float(wks_serial))
-                date_labels.append(str(wks_date))
-                hprev_values.append(float(hprev) if hprev is not None else 0)
-                ppto_values.append(float(ppto) if ppto is not None else 0)
-                real_values.append(float(real) if real is not None else 0)
+            
+            # Si wks_serial es None, generar un número secuencial
+            if wks_serial is None:
+                wks_serial = seq_serial
+                seq_serial += 1
+                # Si no hay fecha, usar un texto genérico
+                if not wks_date:
+                    wks_date = f'Periodo {wks_serial}'
+            
+            serials.append(float(wks_serial))
+            date_labels.append(str(wks_date))
+            hprev_values.append(float(hprev) if hprev is not None else 0)
+            ppto_values.append(float(ppto) if ppto is not None else 0)
+            real_values.append(float(real) if real is not None else 0)
         if serials and date_labels:
             data_dict = list(zip(serials, date_labels, hprev_values, ppto_values, real_values))
             data_dict.sort(key=lambda x: x[0])

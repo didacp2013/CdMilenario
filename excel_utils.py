@@ -127,6 +127,10 @@ def procesar_datos_arbol(items, itmfrm_lookup=None, fasg5_data=None):
     Procesa los datos del árbol y devuelve una estructura jerárquica
     """
     result = {}
+    # Inicializar itmfrm_lookup si es None
+    if itmfrm_lookup is None:
+        itmfrm_lookup = {}
+        
     # Agrupar por columna
     column_groups = {}
     for item in items:
@@ -165,10 +169,22 @@ def procesar_datos_arbol(items, itmfrm_lookup=None, fasg5_data=None):
         
         # Conectar los nodos según NODEP
         for item in column_items:
+            # Verificar que el nodo exista en el mapa
+            if item["NODE"] not in node_map:
+                print(f"Advertencia: Nodo {item['NODE']} no encontrado en el mapa de nodos")
+                continue
+                
             node = node_map[item["NODE"]]
             if item["LEVEL"] > 1:  # No es la raíz
-                parent = node_map[item["NODEP"]]
-                parent["children"].append(node)
+                # Verificar que el nodo padre exista
+                if item["NODEP"] not in node_map:
+                    print(f"Advertencia: Nodo padre {item['NODEP']} no encontrado para el nodo {item['NODE']}")
+                    # Si no existe el padre, lo conectamos a la raíz o lo ignoramos
+                    if tree is not None:
+                        tree["children"].append(node)
+                else:
+                    parent = node_map[item["NODEP"]]
+                    parent["children"].append(node)
         
         # FASE 2: Enriquecimiento con ITMFRM
         if tree and (itmfrm_lookup or fasg5_data):
@@ -205,6 +221,8 @@ def extraer_itmids_hoja(tree_structure):
     itmids = []
     
     def process_node(node):
+        if node is None:
+            return
         if not node.get('children'):  # Es un nodo hoja
             itmid = extraer_itmid(node.get('id', ''))
             if itmid:

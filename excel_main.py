@@ -11,27 +11,54 @@ from excel_utils import extract_tree_data, procesar_datos_arbol
 from excel_utils import extraer_itmids_hoja
 
 # Valores hardcodeados del Excel y sus hojas
+# Cambiar la línea 11:
+# EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/DataKHT_V06.xlsm"
+
+# Por esta ruta que apunta al directorio padre:
 EXCEL_PATH = "/Users/didac/Downloads/StoryMac/DashBTracker/PruebasCdM/DataKHT_V06.xlsm"
 HISTORIC_SHEET = "FrmBB_2"
 KPI_SHEET = "FrmBB_3"
 TREE_SHEET = "F_Asg3"
+ITM_SHEET = "F_Asg5"
 
 def wks_to_date(wks):
     """
     Convierte una semana de excel a fecha y número serial.
+    Soporta formatos 'YYYY.WW' y 'YYYY-WWW'
     """
     try:
-        parts = wks.split('-W')
-        if len(parts) != 2:
+        # Verificar el formato y extraer año y semana
+        if '.' in wks:  # Formato YYYY.WW
+            parts = wks.split('.')
+            if len(parts) != 2:
+                print(f"Formato WKS inválido: {wks}")
+                return None, None
+            year = int(parts[0])
+            week = int(parts[1])
+        elif '-W' in wks:  # Formato YYYY-WWW
+            parts = wks.split('-W')
+            if len(parts) != 2:
+                print(f"Formato WKS inválido: {wks}")
+                return None, None
+            year = int(parts[0])
+            week = int(parts[1])
+        else:
+            print(f"Formato WKS no reconocido: {wks}")
             return None, None
-        year = int(parts[0])
-        week = int(parts[1])
+            
+        # Asegurar que la semana esté en el rango válido (1-53)
+        if week < 1 or week > 53:
+            print(f"Número de semana fuera de rango: {week}")
+            return None, None
+            
         from datetime import datetime, timedelta
-        date = datetime.strptime(f'{year}-W{week}-1', '%Y-W%W-%w').date()
-        excel_base = datetime.date(1899, 12, 30)
+        # Convertir a fecha usando el formato ISO
+        date = datetime.strptime(f'{year}-W{week:02d}-1', '%Y-W%W-%w').date()
+        excel_base = datetime(1899, 12, 30).date()
         excel_serial = (date - excel_base).days
         return date, excel_serial
-    except Exception:
+    except Exception as e:
+        print(f"Error al convertir WKS '{wks}': {str(e)}")
         return None, None
 
 def extract_historic_data(excel_path, sheet_name):
@@ -83,7 +110,7 @@ def extract_kpi_data(excel_path, sheet_name):
     except Exception:
         return []
 
-def extract_itm_data(excel_path, sheet_name="F_Asg5"):
+def extract_itm_data(excel_path, sheet_name=ITM_SHEET):
     """
     Extrae datos de la tabla F_Asg5 (datos de items).
     Asegura que todos los campos sean texto.
