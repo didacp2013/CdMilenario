@@ -92,7 +92,17 @@ def create_historic_view(data):
                 margin=dict(l=20, r=20, t=20, b=80),
                 height=420,
                 width=1260,
-                showlegend=False,
+                showlegend=True,  # Mostrar leyenda para mejor comprensión
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                    bgcolor='rgba(255, 255, 255, 0.8)',
+                    bordercolor='rgba(211, 211, 211, 0.5)',
+                    borderwidth=1
+                ),
                 xaxis=dict(
                     showgrid=True,
                     gridcolor='rgba(211, 211, 211, 0.3)',
@@ -103,18 +113,26 @@ def create_historic_view(data):
                     showticklabels=True,
                     title=None,
                     automargin=True,
-                    tickfont=dict(size=9, family="Consolas, Menlo, monospace")
+                    tickfont=dict(size=10, family="Consolas, Menlo, monospace"),
+                    linecolor='rgba(211, 211, 211, 0.5)'
                 ),
                 yaxis=dict(
                     showgrid=True,
                     gridcolor='rgba(211, 211, 211, 0.3)',
                     title=None,
                     automargin=True,
-                    tickfont=dict(size=14)
+                    tickfont=dict(size=14),
+                    linecolor='rgba(211, 211, 211, 0.5)'
                 ),
                 plot_bgcolor='rgba(255, 255, 255, 0.9)',
                 paper_bgcolor='rgba(255, 255, 255, 0.9)',
                 hovermode='closest',
+                hoverlabel=dict(
+                    bgcolor="white",
+                    font_size=12,
+                    font_family="Arial",
+                    bordercolor="#ddd"
+                ),
             )
             cell_title = f"{clean_label(row)} - {clean_label(column)}"
             card = html.Div([
@@ -123,13 +141,15 @@ def create_historic_view(data):
                         'margin': '0',
                         'color': '#fff',
                         'fontWeight': '600',
-                        'textShadow': '1px 1px 2px rgba(0,0,0,0.2)'
+                        'textShadow': '1px 1px 2px rgba(0,0,0,0.2)',
+                        'letterSpacing': '0.5px'
                     })
                 ], style={
                     'borderBottom': '1px solid #dee2e6',
                     'padding': '12px 15px',
-                    'borderRadius': '5px 5px 0 0',
-                    'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'
+                    'borderRadius': '8px 8px 0 0',
+                    'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)',
+                    'boxShadow': '0 2px 4px rgba(0,0,0,0.1) inset'
                 }),
                 html.Div([
                     dcc.Graph(
@@ -141,25 +161,20 @@ def create_historic_view(data):
             ], style={
                 'margin': '12px',
                 'border': '1px solid #dee2e6',
-                'borderRadius': '6px',
+                'borderRadius': '8px',
                 'backgroundColor': '#ffffff',
-                'boxShadow': '0 4px 8px rgba(0,0,0,0.1)',
+                'boxShadow': '0 6px 16px rgba(44,62,80,0.12)',
                 'width': '1260px',
                 'display': 'block',
-                'verticalAlign': 'top'
+                'verticalAlign': 'top',
+                'transition': 'all 0.3s ease'
             })
             historic_cards.append(card)
     if not historic_cards:
         return html.Div("No se encontraron datos históricos para mostrar", style={'padding': '20px', 'textAlign': 'center'})
     return html.Div([
-        # html.H3("Vista Histórica", style={
-        #     'textAlign': 'center',
-        #     'marginBottom': '25px',
-        #     'color': '#2c3e50',
-        #     'fontWeight': '600'
-        # }),
         html.Div(historic_cards, style={
             'display': 'block',
-            'padding': '10px'
+            'padding': '15px'
         })
     ])

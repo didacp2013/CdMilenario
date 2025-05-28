@@ -121,17 +121,101 @@ def create_layout():
     default_prjid = prjid_values[0] if prjid_values else None
     
     return html.Div([
+        # Header con efecto de sombra y gradiente mejorado
         html.Div([
             html.H1("Dashboard Tracker", style={
-                'color': '#2c3e50', 'textAlign': 'center', 'marginBottom': '10px', 'fontWeight': '700'})
-        ], style={'padding': '20px 0', 'borderBottom': '2px solid #4a6fa5', 'marginBottom': '30px', 'background': 'linear-gradient(to right, #f8f9fa, #e9ecef, #f8f9fa)'}),
+                'color': '#2c3e50', 
+                'textAlign': 'center', 
+                'marginBottom': '10px', 
+                'fontWeight': '700',
+                'letterSpacing': '0.5px',
+                'textShadow': '0 2px 4px rgba(0,0,0,0.1)'
+            })
+        ], style={
+            'padding': '20px 0', 
+            'borderBottom': '2px solid #4a6fa5', 
+            'marginBottom': '30px', 
+            'background': 'linear-gradient(135deg, #f8f9fa, #e9ecef, #f8f9fa)',
+            'boxShadow': '0 4px 6px rgba(0,0,0,0.05)'
+        }),
+        
+        # Panel de controles con mejor espaciado y estilo
         html.Div([
-            dcc.Dropdown(id='cia-filter', options=[{'label': cia, 'value': cia} for cia in cia_values], value=default_cia, placeholder='Selecciona una CIA', style={'width': '220px'}),
-            dcc.Dropdown(id='prjid-filter', options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], value=default_prjid, placeholder='Selecciona un PRJID', style={'width': '220px'}),
-            html.Button("Actualizar datos", id="apply-filters", n_clicks=0, style={"marginLeft": "20px", "marginRight": "20px", "height": "40px"}),
-            html.Button("Cerrar Dashboard", id="btn-close", n_clicks=0, style={"backgroundColor": "#dc3545", "color": "white", "height": "40px"}),
-            html.Div(id='close-message-container', style={'display': 'none'}),
+            # Filtros con estilos mejorados
             html.Div([
+                html.Label("CIA", style={'fontWeight': '600', 'color': '#2c3e50', 'marginBottom': '5px', 'fontSize': '14px'}),
+                dcc.Dropdown(
+                    id='cia-filter', 
+                    options=[{'label': cia, 'value': cia} for cia in cia_values], 
+                    value=default_cia, 
+                    placeholder='Selecciona una CIA', 
+                    style={
+                        'width': '220px',
+                        'borderRadius': '4px',
+                        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                    }
+                )
+            ], style={'display': 'flex', 'flexDirection': 'column', 'marginRight': '15px'}),
+            
+            html.Div([
+                html.Label("PRJID", style={'fontWeight': '600', 'color': '#2c3e50', 'marginBottom': '5px', 'fontSize': '14px'}),
+                dcc.Dropdown(
+                    id='prjid-filter', 
+                    options=[{'label': prjid, 'value': prjid} for prjid in prjid_values], 
+                    value=default_prjid, 
+                    placeholder='Selecciona un PRJID', 
+                    style={
+                        'width': '220px',
+                        'borderRadius': '4px',
+                        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                    }
+                )
+            ], style={'display': 'flex', 'flexDirection': 'column', 'marginRight': '20px'}),
+            
+            # Botones con estilos mejorados y efectos hover
+            html.Button(
+                "Actualizar datos", 
+                id="apply-filters", 
+                n_clicks=0, 
+                style={
+                    "marginLeft": "10px", 
+                    "marginRight": "15px", 
+                    "height": "40px",
+                    "backgroundColor": "#4a6fa5",
+                    "color": "white",
+                    "border": "none",
+                    "borderRadius": "4px",
+                    "padding": "0 20px",
+                    "fontWeight": "600",
+                    "boxShadow": "0 2px 4px rgba(0,0,0,0.1)",
+                    "cursor": "pointer",
+                    "transition": "all 0.2s ease"
+                }
+            ),
+            
+            html.Button(
+                "Cerrar Dashboard", 
+                id="btn-close", 
+                n_clicks=0, 
+                style={
+                    "backgroundColor": "#dc3545", 
+                    "color": "white", 
+                    "height": "40px",
+                    "border": "none",
+                    "borderRadius": "4px",
+                    "padding": "0 20px",
+                    "fontWeight": "600",
+                    "boxShadow": "0 2px 4px rgba(0,0,0,0.1)",
+                    "cursor": "pointer",
+                    "transition": "all 0.2s ease"
+                }
+            ),
+            
+            html.Div(id='close-message-container', style={'display': 'none'}),
+            
+            # Selector de vista con estilo mejorado
+            html.Div([
+                html.Label("Vista", style={'fontWeight': '600', 'color': '#2c3e50', 'marginBottom': '5px', 'fontSize': '14px', 'textAlign': 'center', 'display': 'block'}),
                 dcc.RadioItems(
                     id='view-selector',
                     options=[
@@ -140,13 +224,62 @@ def create_layout():
                         {'label': 'ÁRBOL', 'value': 'tree'}
                     ],
                     value='kpi',
-                    labelStyle={'display': 'inline-block', 'marginRight': '10px', 'fontWeight': 'bold'},
-                    style={'display': 'flex', 'justifyContent': 'center'}
+                    labelStyle={
+                        'display': 'inline-block', 
+                        'marginRight': '15px', 
+                        'marginLeft': '15px',
+                        'fontWeight': 'bold',
+                        'color': '#2c3e50',
+                        'cursor': 'pointer'
+                    },
+                    style={
+                        'display': 'flex', 
+                        'justifyContent': 'center',
+                        'backgroundColor': '#f8f9fa',
+                        'padding': '8px 15px',
+                        'borderRadius': '4px',
+                        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                    }
                 )
             ], style={"marginLeft": "20px"})
-        ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'marginBottom': '20px', 'gap': '10px'}),
-        html.Div(id='dashboard-content'),
-        html.Div(id='user-message', style={'color': 'red', 'textAlign': 'center', 'marginTop': '10px'}),
+        ], style={
+            'display': 'flex', 
+            'justifyContent': 'center', 
+            'alignItems': 'flex-end', 
+            'marginBottom': '25px', 
+            'gap': '10px',
+            'flexWrap': 'wrap',
+            'padding': '0 15px'
+        }),
+
+        # Contenedor principal con sombra sutil
+        html.Div(
+            id='dashboard-content',
+            style={
+                'padding': '15px',
+                'backgroundColor': '#f9f9f9',
+                'borderRadius': '8px',
+                'boxShadow': '0 2px 10px rgba(0,0,0,0.05)',
+                'minHeight': '300px'
+            }
+        ),
+        
+        # Mensaje de usuario con estilo mejorado
+        html.Div(
+            id='user-message', 
+            style={
+                'color': '#dc3545', 
+                'textAlign': 'center', 
+                'marginTop': '15px',
+                'padding': '10px',
+                'fontWeight': '500',
+                'backgroundColor': 'rgba(220, 53, 69, 0.1)',
+                'borderRadius': '4px',
+                'display': 'none'  # Inicialmente oculto, se mostrará cuando tenga contenido
+            }
+        ),
+        
+        # Elemento oculto para el trigger de cierre
         html.Div(id='close-trigger', style={'display': 'none'})
     ])
 
@@ -157,7 +290,8 @@ def init_callbacks(app):
     # Callback para actualizar el contenido del dashboard basado en los filtros
     @app.callback(
         [Output('dashboard-content', 'children'),
-         Output('user-message', 'children')],
+         Output('user-message', 'children'),
+         Output('user-message', 'style')],
         [Input('apply-filters', 'n_clicks')],
         [State('cia-filter', 'value'),
          State('prjid-filter', 'value'),
@@ -169,7 +303,13 @@ def init_callbacks(app):
         # Verificar que tenemos datos para filtrar
         if 'datos_dashboard' not in globals() or not isinstance(datos_dashboard, list):
             print("No hay datos disponibles para filtrar")
-            return html.Div("No hay datos disponibles", style={'textAlign': 'center', 'padding': '20px'}), ""
+            return html.Div(
+                html.Div([
+                    html.I(className="fas fa-exclamation-circle", style={'fontSize': '48px', 'color': '#dc3545', 'marginBottom': '15px'}),
+                    html.H4("No hay datos disponibles", style={'color': '#2c3e50', 'marginBottom': '10px'}),
+                    html.P("Por favor, verifica que el archivo Excel existe y contiene datos válidos.", style={'color': '#6c757d'})
+                ], style={'textAlign': 'center', 'padding': '40px'})
+            ), "", {'display': 'none'}
         
         # Filtrar los datos según los criterios seleccionados
         filtered_data = [
@@ -182,15 +322,15 @@ def init_callbacks(app):
         
         # Si no hay datos para la combinación, informar al usuario
         if not filtered_data:
-            return None, "No hay datos para la combinación seleccionada. Cambie su selección."
+            return None, "No hay datos para la combinación seleccionada. Cambie su selección.", {'display': 'block', 'color': '#dc3545', 'textAlign': 'center', 'marginTop': '15px', 'padding': '10px', 'fontWeight': '500', 'backgroundColor': 'rgba(220, 53, 69, 0.1)', 'borderRadius': '4px'}
             
         # Mostrar la vista seleccionada
         if view_type == 'kpi':
-            return kpi_view_external(filtered_data), ""
+            return kpi_view_external(filtered_data), "", {'display': 'none'}
         elif view_type == 'historic':
-            return historic_view_external(filtered_data), ""
+            return historic_view_external(filtered_data), "", {'display': 'none'}
         else:  # view_type == 'tree'
-            return create_tree_view(filtered_data), ""
+            return create_tree_view(filtered_data), "", {'display': 'none'}
     
     # Callback para cerrar el dashboard
     @app.callback(
@@ -235,10 +375,17 @@ def main():
         check_and_kill_process_on_port(PORT)
         reserve_port(PORT)
 
-        # Crear la aplicación Dash
+        # Crear la aplicación Dash con estilos mejorados
         app = Dash(__name__, 
-                  external_stylesheets=[dbc.themes.BOOTSTRAP],
-                  suppress_callback_exceptions=True)
+                  external_stylesheets=[
+                      dbc.themes.BOOTSTRAP,
+                      'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css'  # Añadir Font Awesome para iconos
+                  ],
+                  suppress_callback_exceptions=True,
+                  meta_tags=[
+                      # Asegurar responsive design
+                      {"name": "viewport", "content": "width=device-width, initial-scale=1"}
+                  ])
         
         # Configurar el layout
         app.layout = create_layout()

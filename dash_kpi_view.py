@@ -128,7 +128,7 @@ def create_kpi_card(cell_data):
     realprev_div = donut_figure(realprev, '#28a745' if realprev >= 0 else '#dc3545', 'REALPREV')
     pptoprev_div = donut_figure(pptoprev, '#4a6fa5' if pptoprev >= 0 else '#dc3545', 'PPTOPREV')
     
-    # Crear la tarjeta
+    # Crear la tarjeta con estilo mejorado
     return html.Div([
         html.Div([
             html.H5(title, style={
@@ -136,13 +136,15 @@ def create_kpi_card(cell_data):
                 'color': '#fff',
                 'fontWeight': '600',
                 'fontSize': '16px',
-                'textShadow': '0 2px 4px rgba(44,62,80,0.12)'
+                'textShadow': '0 2px 4px rgba(44,62,80,0.12)',
+                'letterSpacing': '0.5px'
             })
         ], style={
             'borderBottom': '1px solid #dee2e6',
-            'padding': '10px 15px',
+            'padding': '12px 15px',
             'borderRadius': '12px 12px 0 0',
-            'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)'
+            'background': 'linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%)',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1) inset'
         }),
         
         # Cuerpo de la tarjeta con los gráficos
@@ -161,12 +163,17 @@ def create_kpi_card(cell_data):
         'border': '1px solid #dee2e6',
         'borderRadius': '12px',
         'backgroundColor': '#ffffff',
-        'boxShadow': '0 4px 12px rgba(44,62,80,0.10)',
+        'boxShadow': '0 6px 16px rgba(44,62,80,0.12)',
         'width': '350px',
         'display': 'inline-block',
         'verticalAlign': 'top',
-        'transition': 'box-shadow 0.2s',
-        'overflow': 'hidden'
+        'transition': 'all 0.3s ease',
+        'overflow': 'hidden',
+        'transform': 'translateY(0)',
+        ':hover': {
+            'boxShadow': '0 8px 24px rgba(44,62,80,0.15)',
+            'transform': 'translateY(-5px)'
+        }
     })
 
 def create_kpi_view(data):
@@ -188,16 +195,11 @@ def create_kpi_view(data):
         return html.Div("No se encontraron datos KPI para mostrar", style={'padding': '20px', 'textAlign': 'center'})
     
     return html.Div([
-        # html.H3("Vista de KPIs", style={
-        #     'textAlign': 'center', 
-        #     'marginBottom': '25px',
-        #     'color': '#2c3e50',
-        #     'fontWeight': '600'
-        # }),
         html.Div(kpi_cards, style={
             'display': 'flex',
             'flexWrap': 'wrap',
             'justifyContent': 'center',
-            'padding': '10px'
+            'padding': '15px',
+            'gap': '10px'
         })
     ])
